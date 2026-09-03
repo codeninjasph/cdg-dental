@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { ClinicProvider } from "@/context/clinic-context";
-import { ClinicNavbar } from "@/components/layout/clinic-navbar";
+import { AppLayoutShell } from "@/components/layout/app-layout-shell";
+import { CdoJsonLd } from "@/components/seo/cdo-json-ld";
+import { Suspense } from "react";
 import "./globals.css";
 
 const inter = Inter({
@@ -11,11 +13,39 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "CDG Dental Clinic — Comprehensive Practice Management",
-  description: "Next.js & Supabase Clinical Practice Management, 32-Tooth Odontogram, Scheduling, and Financial Ledger.",
+  title: "CDG Dental Clinic — Premier Dental Clinic in Cagayan de Oro City | Cosmetic, Ortho & Implants",
+  description:
+    "Trusted modern dental clinic in Cagayan de Oro City (CDO), Northern Mindanao. Advanced smile makeovers, clear aligners, dental implants, and gentle general dentistry in Limketkai Downtown and Pueblo de Oro Uptown.",
+  keywords: [
+    "dental clinic Cagayan de Oro",
+    "dentist CDO",
+    "orthodontist Cagayan de Oro",
+    "clear aligners CDO",
+    "porcelain veneers CDO",
+    "teeth whitening Cagayan de Oro",
+    "Limketkai dental clinic",
+    "Pueblo de Oro dentist",
+    "dental implants Northern Mindanao",
+  ],
+  authors: [{ name: "CDG Dental Clinic Cagayan de Oro" }],
+  openGraph: {
+    title: "CDG Dental Clinic — Premier Dental Care in Cagayan de Oro City",
+    description:
+      "Hospital-grade, pain-free dental medicine in CDO. Cosmetic dentistry, clear aligners, dental implants, and family preventive care.",
+    url: "https://cdgdental.ph",
+    siteName: "CDG Dental Clinic CDO",
+    images: [
+      {
+        url: "/images/hero-clinic.jpg",
+        width: 1200,
+        height: 675,
+        alt: "CDG Dental Clinic Cagayan de Oro Operatory",
+      },
+    ],
+    locale: "en_PH",
+    type: "website",
+  },
 };
-
-import { Suspense } from "react";
 
 export default function RootLayout({
   children,
@@ -24,7 +54,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
-      <body className="font-sans antialiased bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+      <head>
+        <CdoJsonLd />
+      </head>
+      <body className="font-sans antialiased bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col selection:bg-teal-500 selection:text-white">
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
@@ -32,14 +65,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <ClinicProvider>
-            <Suspense fallback={<div className="h-16 border-b border-slate-200 dark:border-slate-800" />}>
-              <ClinicNavbar />
+            <Suspense fallback={<div className="h-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800" />}>
+              <AppLayoutShell>{children}</AppLayoutShell>
             </Suspense>
-            <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-              <Suspense fallback={<div className="p-8 text-center text-slate-500 text-xs">Loading CDG Dental Workspace...</div>}>
-                {children}
-              </Suspense>
-            </main>
           </ClinicProvider>
         </ThemeProvider>
       </body>

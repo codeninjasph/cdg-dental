@@ -31,7 +31,7 @@ export function ClinicNavbar() {
   } = useClinic();
 
   const navLinks = [
-    { href: "/", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/portal", label: "Dashboard", icon: LayoutDashboard },
     { href: "/appointments", label: "Appointments", icon: Calendar },
     { href: "/patients", label: "Patients CRM", icon: Users },
     { href: "/billing", label: "Billing & POS", icon: CreditCard },
@@ -43,7 +43,7 @@ export function ClinicNavbar() {
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo & Clinic Brand */}
           <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2.5 group">
+            <Link href="/portal" className="flex items-center gap-2.5 group">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-cyan-500 flex items-center justify-center text-white shadow-md shadow-teal-500/20 group-hover:scale-105 transition-transform">
                 {/* Stylized Tooth SVG */}
                 <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current">
@@ -140,6 +140,14 @@ export function ClinicNavbar() {
                   </option>
                 </select>
               </div>
+
+              {/* Public Website Button */}
+              <Link
+                href="/"
+                className="hidden lg:flex items-center gap-1 text-xs font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800/80 px-2.5 py-1.5 rounded-lg hover:bg-teal-100 transition-colors"
+              >
+                <span>← Public Site</span>
+              </Link>
             </div>
           </div>
         </div>
