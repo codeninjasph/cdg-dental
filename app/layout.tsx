@@ -1,23 +1,21 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Inter } from "next/font/google";
 import { ThemeProvider } from "next-themes";
+import { ClinicProvider } from "@/context/clinic-context";
+import { ClinicNavbar } from "@/components/layout/clinic-navbar";
 import "./globals.css";
 
-const defaultUrl = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : "http://localhost:3000";
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
 
 export const metadata: Metadata = {
-  metadataBase: new URL(defaultUrl),
-  title: "Next.js and Supabase Starter Kit",
-  description: "The fastest way to build apps with Next.js and Supabase",
+  title: "CDG Dental Clinic — Comprehensive Practice Management",
+  description: "Next.js & Supabase Clinical Practice Management, 32-Tooth Odontogram, Scheduling, and Financial Ledger.",
 };
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  display: "swap",
-  subsets: ["latin"],
-});
+import { Suspense } from "react";
 
 export default function RootLayout({
   children,
@@ -25,15 +23,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.className} antialiased`}>
+    <html lang="en" suppressHydrationWarning className={inter.variable}>
+      <body className="font-sans antialiased bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="light"
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <ClinicProvider>
+            <Suspense fallback={<div className="h-16 border-b border-slate-200 dark:border-slate-800" />}>
+              <ClinicNavbar />
+            </Suspense>
+            <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+              <Suspense fallback={<div className="p-8 text-center text-slate-500 text-xs">Loading CDG Dental Workspace...</div>}>
+                {children}
+              </Suspense>
+            </main>
+          </ClinicProvider>
         </ThemeProvider>
       </body>
     </html>
