@@ -8,8 +8,15 @@ import { PublicFooter } from "@/components/public/public-footer";
 export function AppLayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
+  const isAuthRoute = pathname?.startsWith("/auth");
+
+  if (isAuthRoute) {
+    return <>{children}</>;
+  }
+
   const isPortalRoute =
     pathname?.startsWith("/portal") ||
+    pathname?.startsWith("/secretary") ||
     pathname?.startsWith("/patients") ||
     pathname?.startsWith("/appointments") ||
     pathname?.startsWith("/billing") ||

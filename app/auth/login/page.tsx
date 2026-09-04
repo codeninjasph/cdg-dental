@@ -1,11 +1,21 @@
-import { LoginForm } from "@/components/login-form";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { LoginForm } from "@/components/auth/login-form";
+import { Suspense } from "react";
 
-export default function Page() {
+export const metadata = {
+  title: "Staff Login | CDG Dental Clinic",
+  description: "Secure login portal for CDG Dental Clinic practitioners and staff.",
+};
+
+export default function LoginPage() {
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-      <div className="w-full max-w-sm">
+    <AuthShell
+      title="Staff Portal Sign In"
+      subtitle="Access clinical charts, secretary appointments, and clinic operations."
+    >
+      <Suspense fallback={<div className="text-slate-400 text-xs text-center py-10">Loading portal...</div>}>
         <LoginForm />
-      </div>
-    </div>
+      </Suspense>
+    </AuthShell>
   );
 }

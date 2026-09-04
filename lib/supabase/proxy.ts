@@ -1,20 +1,17 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
+import { ROLE_COOKIE_NAME, normalizeRole } from "./get-user-role";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
 
-  // If the env vars are not set, skip proxy check. You can remove this
-  // once you setup the project.
   if (!hasEnvVars) {
     return supabaseResponse;
   }
 
-  // With Fluid compute, don't put this client in a global environment
-  // variable. Always create a new one on each request.
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
@@ -38,37 +35,88 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // Do not run code between createServerClient and
-  // supabase.auth.getClaims(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
+  // Helper to maintain cookies across redirects
+  const makeRedirect = (url: URL) => {
+    const redirectResponse = NextResponse.redirect(url);
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value, cookie);
+    });
+    return redirectResponse;
+  };
 
-  // IMPORTANT: If you remove getClaims() and you use server-side rendering
-  // with the Supabase client, your users may be randomly logged out.
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
+  const pathname = request.nextUrl.pathname;
 
-  if (
-    request.nextUrl.pathname.startsWith("/protected") &&
-    !user
-  ) {
-    // no user, redirect to login for protected route
-    const url = request.nextUrl.clone();
-    url.pathname = "/auth/login";
-    return NextResponse.redirect(url);
+  // List of paths requiring authenticated clinic personnel
+  const protectedPrefixes = [
+    "/portal",
+    "/secretary",
+    "/patients",
+    "/appointments",
+    "/billing",
+    "/protected",
+  ];
+
+  const isProtectedRoute = protectedPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+
+  // 1. Unauthenticated user trying to access protected route
+  if (isProtectedRoute && !user) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/auth/login";
+    loginUrl.searchParams.set("redirect", pathname);
+    return makeRedirect(loginUrl);
   }
 
-  // IMPORTANT: You *must* return the supabaseResponse object as it is.
-  // If you're creating a new response object with NextResponse.next() make sure to:
-  // 1. Pass the request in it, like so:
-  //    const myNewResponse = NextResponse.next({ request })
-  // 2. Copy over the cookies, like so:
-  //    myNewResponse.cookies.setAll(supabaseResponse.cookies.getAll())
-  // 3. Change the myNewResponse object to fit your needs, but avoid changing
-  //    the cookies!
-  // 4. Finally:
-  //    return myNewResponse
-  // If this is not done, you may be causing the browser and server to go out
-  // of sync and terminate the user's session prematurely!
+  // 2. Authenticated user logic
+  if (user) {
+    const rawCookieRole = request.cookies.get(ROLE_COOKIE_NAME)?.value;
+    const userRole = normalizeRole(rawCookieRole);
+
+    // If logged in and visiting login page, redirect to default landing page
+    if (pathname === "/auth/login") {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = userRole === "secretary" ? "/secretary" : "/portal";
+      redirectUrl.search = "";
+      return makeRedirect(redirectUrl);
+    }
+
+    // Role-Based Access Control (RBAC) Rules:
+    // Rule A: /secretary is BLOCKED for dentists (secretary + admin allowed)
+    if (pathname.startsWith("/secretary")) {
+      if (userRole === "dentist") {
+        const unauthUrl = request.nextUrl.clone();
+        unauthUrl.pathname = "/auth/unauthorized";
+        unauthUrl.searchParams.set("attempted", "/secretary");
+        unauthUrl.searchParams.set("reason", "dentist_blocked");
+        return makeRedirect(unauthUrl);
+      }
+    }
+
+    // Rule B: /billing is BLOCKED for secretary (dentist + admin allowed)
+    if (pathname.startsWith("/billing")) {
+      if (userRole === "secretary") {
+        const unauthUrl = request.nextUrl.clone();
+        unauthUrl.pathname = "/auth/unauthorized";
+        unauthUrl.searchParams.set("attempted", "/billing");
+        unauthUrl.searchParams.set("reason", "billing_restricted");
+        return makeRedirect(unauthUrl);
+      }
+    }
+
+    // Rule C: /patients and /appointments are BLOCKED for secretary
+    if (pathname.startsWith("/patients") || pathname.startsWith("/appointments")) {
+      if (userRole === "secretary") {
+        const unauthUrl = request.nextUrl.clone();
+        unauthUrl.pathname = "/auth/unauthorized";
+        unauthUrl.searchParams.set("attempted", pathname);
+        unauthUrl.searchParams.set("reason", "clinical_restricted");
+        return makeRedirect(unauthUrl);
+      }
+    }
+  }
 
   return supabaseResponse;
 }

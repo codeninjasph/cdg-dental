@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useClinic } from "@/context/clinic-context";
 import { Patient } from "@/types/dental";
 import { PatientRegistrationModal } from "@/components/patients/patient-registration-modal";
+import { MergePatientModal } from "@/components/patients/merge-patient-modal";
 import {
   Users,
   Search,
@@ -16,6 +17,7 @@ import {
   ShieldAlert,
   ChevronRight,
   Filter,
+  Merge,
 } from "lucide-react";
 
 export default function PatientsDirectoryPage() {
@@ -24,6 +26,7 @@ export default function PatientsDirectoryPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterAlertsOnly, setFilterAlertsOnly] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMergeOpen, setIsMergeOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const supabase = createClient();
@@ -75,13 +78,22 @@ export default function PatientsDirectoryPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm hover:shadow transition-all cursor-pointer shrink-0"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Register New Patient</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setIsMergeOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-100 hover:bg-violet-200 dark:bg-violet-950 dark:hover:bg-violet-900 text-violet-700 dark:text-violet-300 font-bold text-xs shadow-sm hover:shadow transition-all cursor-pointer"
+          >
+            <Merge className="w-4 h-4" />
+            <span>Merge Duplicate</span>
+          </button>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm hover:shadow transition-all cursor-pointer"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Register New Patient</span>
+          </button>
+        </div>
       </div>
 
       {/* Search & Filter Bar */}
@@ -242,6 +254,14 @@ export default function PatientsDirectoryPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={triggerRefresh}
+      />
+      <MergePatientModal
+        isOpen={isMergeOpen}
+        onClose={() => setIsMergeOpen(false)}
+        onSuccess={() => {
+          triggerRefresh();
+          setIsMergeOpen(false);
+        }}
       />
     </div>
   );

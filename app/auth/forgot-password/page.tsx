@@ -1,11 +1,18 @@
+import { AuthShell } from "@/components/auth/auth-shell";
 import { ForgotPasswordForm } from "@/components/forgot-password-form";
 
-export default function Page() {
+export const metadata = {
+  title: "Reset Password | CDG Dental Clinic",
+  description: "Reset your CDG Dental staff portal password.",
+};
+
+export default function ForgotPasswordPage() {
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-      <div className="w-full max-w-sm">
-        <ForgotPasswordForm />
-      </div>
-    </div>
+    <AuthShell
+      title="Reset Staff Password"
+      subtitle="Enter your clinic credentials to receive password recovery instructions."
+    >
+      <ForgotPasswordForm />
+    </AuthShell>
   );
 }

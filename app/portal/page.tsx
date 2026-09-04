@@ -24,6 +24,7 @@ import {
   Phone,
   QrCode,
   ShieldAlert,
+  UserCheck,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -146,12 +147,19 @@ export default function DashboardPage() {
 
         {/* Action Buttons */}
         <div className="relative z-10 flex flex-wrap items-center gap-2.5">
-          <button
-            onClick={() => setIsApptModalOpen(true)}
+          <Link
+            href="/secretary"
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs shadow-md shadow-teal-500/25 hover:shadow-lg transition-all cursor-pointer"
           >
+            <UserCheck className="w-4 h-4" />
+            <span>Secretary Desk</span>
+          </Link>
+          <button
+            onClick={() => setIsApptModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 backdrop-blur-sm transition-all cursor-pointer"
+          >
             <Plus className="w-4 h-4" />
-            <span>Book Appointment</span>
+            <span>Book Visit</span>
           </button>
           <button
             onClick={() => setIsPatientModalOpen(true)}
