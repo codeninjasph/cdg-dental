@@ -56,6 +56,7 @@ export async function updateSession(request: NextRequest) {
     "/appointments",
     "/billing",
     "/protected",
+    "/admin",
   ];
 
   const isProtectedRoute = protectedPrefixes.some(
@@ -113,6 +114,17 @@ export async function updateSession(request: NextRequest) {
         unauthUrl.pathname = "/auth/unauthorized";
         unauthUrl.searchParams.set("attempted", pathname);
         unauthUrl.searchParams.set("reason", "clinical_restricted");
+        return makeRedirect(unauthUrl);
+      }
+    }
+
+    // Rule D: /admin is BLOCKED for non-admin roles (Admin only)
+    if (pathname.startsWith("/admin")) {
+      if (userRole !== "admin") {
+        const unauthUrl = request.nextUrl.clone();
+        unauthUrl.pathname = "/auth/unauthorized";
+        unauthUrl.searchParams.set("attempted", "/admin/users");
+        unauthUrl.searchParams.set("reason", "admin_restricted");
         return makeRedirect(unauthUrl);
       }
     }

@@ -20,6 +20,7 @@ export function AppLayoutShell({ children }: { children: React.ReactNode }) {
     pathname?.startsWith("/patients") ||
     pathname?.startsWith("/appointments") ||
     pathname?.startsWith("/billing") ||
+    pathname?.startsWith("/admin") ||
     pathname?.startsWith("/protected");
 
   if (isPortalRoute) {

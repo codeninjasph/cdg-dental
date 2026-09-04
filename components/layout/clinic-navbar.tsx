@@ -58,6 +58,7 @@ export function ClinicNavbar() {
     { href: "/appointments", label: "Appointments", icon: Calendar, roles: ["dentist", "admin"] },
     { href: "/patients", label: "Patients", icon: Users, roles: ["dentist", "admin"] },
     { href: "/billing", label: "Billing & POS", icon: CreditCard, roles: ["dentist", "admin"] },
+    { href: "/admin/users", label: "Staff & Access", icon: Shield, roles: ["admin"] },
   ];
 
   const navLinks = allNavLinks.filter((link) => {
