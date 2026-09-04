@@ -2,7 +2,8 @@
 
 import React from "react";
 import Link from "next/link";
-import { ShieldCheck, Sparkles, Stethoscope, Lock, ArrowLeft } from "lucide-react";
+import Image from "next/image";
+import { ShieldCheck, Stethoscope, Lock, ArrowLeft, Activity, Sparkles, Building2, CheckCircle2 } from "lucide-react";
 
 interface AuthShellProps {
   children: React.ReactNode;
@@ -12,36 +13,52 @@ interface AuthShellProps {
 
 export function AuthShell({ children, title, subtitle }: AuthShellProps) {
   return (
-    <div className="min-h-screen w-full bg-[#070d12] text-slate-100 flex flex-col lg:flex-row relative overflow-hidden font-sans selection:bg-teal-500/30 selection:text-teal-200">
-      {/* Dynamic ambient lighting background */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute -top-[20%] -left-[10%] w-[600px] h-[600px] rounded-full bg-teal-600/10 blur-[140px]" />
-        <div className="absolute bottom-[10%] left-[20%] w-[500px] h-[500px] rounded-full bg-cyan-600/10 blur-[150px]" />
-        <div className="absolute top-[40%] -right-[15%] w-[650px] h-[650px] rounded-full bg-emerald-600/10 blur-[160px]" />
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 via-teal-50/30 to-cyan-50/40 text-slate-900 flex flex-col lg:flex-row relative overflow-hidden font-sans selection:bg-teal-100 selection:text-teal-900">
+      {/* Soft Dental Ambient Glows */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute -top-[15%] -left-[10%] w-[650px] h-[650px] rounded-full bg-teal-200/30 blur-[130px]" />
+        <div className="absolute top-[35%] right-[5%] w-[550px] h-[550px] rounded-full bg-cyan-200/30 blur-[140px]" />
+        <div className="absolute -bottom-[10%] left-[25%] w-[500px] h-[500px] rounded-full bg-emerald-100/40 blur-[120px]" />
       </div>
 
-      {/* ── Left Hero Panel (Desktop & Tablet) ── */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-5/12 flex-col justify-between p-12 xl:p-16 relative z-10 border-r border-white/[0.06] bg-gradient-to-br from-slate-950/90 via-slate-900/80 to-teal-950/40 backdrop-blur-2xl">
-        {/* Header / Brand */}
-        <div>
+      {/* ── Left Hero Panel (Official CDG Dental Clinic Atmosphere) ── */}
+      <div className="hidden lg:flex lg:w-1/2 xl:w-7/12 flex-col justify-between p-10 xl:p-14 relative z-10 border-r border-slate-200/80 bg-white/70 backdrop-blur-xl overflow-hidden shadow-xl shadow-slate-200/50">
+        {/* Soft Operatory Visual with Bright Clinic Gradient */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="/images/dental-auth-hero.jpg"
+            alt="CDG Dental Clinic Operatory"
+            fill
+            className="object-cover object-center filter contrast-105 brightness-95 opacity-25"
+            priority
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/90 to-teal-50/70" />
+          <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-white/90" />
+        </div>
+
+        {/* Content Wrapper */}
+        <div className="relative z-10">
+          {/* Back link */}
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-teal-300 transition-colors mb-10 group"
+            className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-teal-700 transition-colors mb-8 group bg-white px-4 py-2 rounded-full border border-slate-200/80 shadow-xs hover:shadow-sm w-fit"
           >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span>Back to Public Website</span>
+            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform text-teal-600" />
+            <span>Return to Public Website</span>
           </Link>
 
-          <div className="flex items-center gap-3.5 mb-8">
+          {/* Clinic Brand Identity */}
+          <div className="flex items-center gap-4 mb-6">
+            {/* Glowing Teal Tooth Emblem */}
             <div className="relative">
-              <div className="absolute inset-0 rounded-2xl bg-teal-500/40 blur-lg animate-pulse" />
-              <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-tr from-teal-500 via-teal-400 to-cyan-400 flex items-center justify-center shadow-xl shadow-teal-500/30 border border-teal-300/30">
-                <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white drop-shadow">
+              <div className="absolute inset-0 rounded-2xl bg-teal-500/20 blur-md" />
+              <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 via-teal-600 to-cyan-700 flex items-center justify-center shadow-lg shadow-teal-600/30 border border-teal-300">
+                <svg viewBox="0 0 24 24" className="w-8 h-8 fill-white drop-shadow-sm">
                   <path d="M12 2C9.2 2 7 4 7 7c0 2.2.6 4.5 1.2 6.5.5 1.8 1 4.5 1.5 6.5.3 1.2 1 1.5 1.5 1.5s1.2-.3 1.5-1.5c.5-2 1-4.7 1.5-6.5C14.8 11.5 15 9.2 15 7c0-3-2.2-5-3-5z" />
                   <path
                     d="M9 7.5C8 7 7.5 8 8 9c.5.8 1.5.5 2 0"
-                    stroke="rgba(255,255,255,0.4)"
-                    strokeWidth="0.8"
+                    stroke="rgba(255,255,255,0.6)"
+                    strokeWidth="1"
                     fill="none"
                   />
                 </svg>
@@ -49,88 +66,113 @@ export function AuthShell({ children, title, subtitle }: AuthShellProps) {
             </div>
 
             <div>
-              <div className="text-xl font-black tracking-tight text-white flex items-center gap-2">
+              <div className="text-2xl font-black tracking-tight text-slate-900 flex items-center gap-2">
                 CDG DENTAL
-                <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-400/30 font-bold tracking-widest">
-                  PORTAL
+                <span className="text-[10px] uppercase px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-200 font-extrabold tracking-wider">
+                  CLINIC EHR
                 </span>
               </div>
-              <p className="text-xs text-slate-400 font-medium tracking-wide">
-                Cagayan de Oro City • Premier Dental Healthcare
+              <p className="text-xs text-teal-700 font-semibold tracking-wide flex items-center gap-1.5 mt-0.5">
+                <span>Cagayan de Oro City</span>
+                <span className="text-slate-400">•</span>
+                <span className="text-slate-600">Cosmetic, Orthodontics & Implants</span>
               </p>
             </div>
           </div>
 
-          <div className="space-y-4 max-w-md">
-            <h1 className="text-3xl xl:text-4xl font-extrabold tracking-tight text-white leading-tight">
-              Modern clinical management for{" "}
-              <span className="bg-gradient-to-r from-teal-300 via-cyan-300 to-emerald-300 bg-clip-text text-transparent">
-                exceptional care.
+          <div className="space-y-3 max-w-lg">
+            <h1 className="text-3xl xl:text-4xl font-black tracking-tight text-slate-900 leading-tight">
+              Hospital-Grade Oral Surgery &{" "}
+              <span className="bg-gradient-to-r from-teal-700 via-teal-600 to-cyan-600 bg-clip-text text-transparent">
+                Dental Medicine Suite.
               </span>
             </h1>
-            <p className="text-slate-400 text-sm leading-relaxed">
-              Secure, authenticated access for clinicians, administrative staff, and clinic directors. Unified chairside odontograms, intelligent queueing, and multi-branch POS.
+            <p className="text-slate-600 text-xs xl:text-sm leading-relaxed max-w-md">
+              The official electronic healthcare portal for CDG Dental practitioners, oral surgery clinicians, and front-desk patient coordinators.
             </p>
           </div>
         </div>
 
-        {/* Feature Cards Showcase */}
-        <div className="space-y-3.5 my-8">
-          <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] backdrop-blur-md hover:bg-white/[0.05] transition-all">
-            <div className="w-9 h-9 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center shrink-0">
-              <Stethoscope className="w-4 h-4 text-teal-400" />
+        {/* 3D Holographic Tooth Showcase Card (Airy Light Luxury) */}
+        <div className="relative z-10 my-6 p-4 rounded-3xl bg-white/90 border border-teal-200/80 shadow-xl shadow-teal-900/5 backdrop-blur-md max-w-md">
+          <div className="flex items-center gap-4">
+            {/* 3D Tooth Hologram Thumbnail */}
+            <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-teal-500/20 shadow-md shrink-0 bg-slate-950">
+              <Image
+                src="/images/dental-tooth-holo.jpg"
+                alt="3D Molar Hologram Scan"
+                fill
+                className="object-cover"
+              />
             </div>
-            <div>
-              <h4 className="text-xs font-bold text-slate-200">Interactive FDI Tooth Charting</h4>
-              <p className="text-[11px] text-slate-400">Adult & pediatric 32-tooth odontograms with instant history</p>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-teal-800">
+                  Interactive FDI Dental Charting
+                </span>
+              </div>
+              <h4 className="text-xs font-bold text-slate-900 truncate">
+                32-Tooth Adult & Pediatric Odontogram
+              </h4>
+              <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2 leading-tight">
+                Chairside restorative logs, endodontic canal charting & real-time treatment history.
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] backdrop-blur-md hover:bg-white/[0.05] transition-all">
-            <div className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-4 h-4 text-cyan-400" />
+          {/* Micro Location Badges */}
+          <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-100 text-[10px]">
+            <div className="text-center p-2 rounded-xl bg-teal-50/70 border border-teal-100/80">
+              <span className="text-teal-800 font-bold block">Centrio Mall</span>
+              <span className="text-teal-600 text-[9px]">Main Clinic</span>
             </div>
-            <div>
-              <h4 className="text-xs font-bold text-slate-200">Role-Based Medical Access</h4>
-              <p className="text-[11px] text-slate-400">Strict separation of clinical charting and front-desk billing</p>
+            <div className="text-center p-2 rounded-xl bg-cyan-50/70 border border-cyan-100/80">
+              <span className="text-cyan-800 font-bold block">Uptown CDO</span>
+              <span className="text-cyan-600 text-[9px]">Branch 2</span>
             </div>
-          </div>
-
-          <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] backdrop-blur-md hover:bg-white/[0.05] transition-all">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
-              <Sparkles className="w-4 h-4 text-emerald-400" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-slate-200">Multi-Branch Synchronization</h4>
-              <p className="text-[11px] text-slate-400">Centrio Mall & Uptown branches connected in real time</p>
+            <div className="text-center p-2 rounded-xl bg-emerald-50/70 border border-emerald-100/80">
+              <span className="text-emerald-800 font-bold block">DOH & HIPAA</span>
+              <span className="text-emerald-600 text-[9px]">Certified</span>
             </div>
           </div>
         </div>
 
-        {/* Left Footer Trust Badge */}
-        <div className="pt-6 border-t border-white/[0.06] flex items-center justify-between text-xs text-slate-500">
-          <div className="flex items-center gap-2">
-            <Lock className="w-3.5 h-3.5 text-teal-400" />
-            <span>End-to-End SSL & RLS Protected</span>
+        {/* Bottom Trust & Compliance Footer */}
+        <div className="relative z-10 pt-4 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500">
+          <div className="flex items-center gap-2 text-[11px]">
+            <Lock className="w-3.5 h-3.5 text-teal-600" />
+            <span>256-Bit Encrypted Health Records</span>
           </div>
-          <span>CDG Dental v2.5</span>
+          <div className="flex items-center gap-1.5 text-[11px] text-teal-700 font-bold">
+            <Activity className="w-3.5 h-3.5" />
+            <span>CDG Dental Gateway v2.5</span>
+          </div>
         </div>
       </div>
 
-      {/* ── Right Form Container ── */}
+      {/* ── Right Form Container (Clean Dental Card) ── */}
       <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-10 lg:p-12 relative z-10 min-h-screen">
-        {/* Mobile Brand Header */}
-        <div className="w-full max-w-md lg:hidden mb-8 text-center flex flex-col items-center">
-          <Link href="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-teal-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-teal-500/30 border border-teal-300/30">
-              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white">
+        {/* Mobile Dental Brand Header */}
+        <div className="w-full max-w-md lg:hidden mb-6 text-center flex flex-col items-center">
+          <Link href="/" className="inline-flex items-center gap-2.5 mb-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-teal-500 to-cyan-600 flex items-center justify-center shadow-md shadow-teal-600/30 border border-teal-300">
+              <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white">
                 <path d="M12 2C9.2 2 7 4 7 7c0 2.2.6 4.5 1.2 6.5.5 1.8 1 4.5 1.5 6.5.3 1.2 1 1.5 1.5 1.5s1.2-.3 1.5-1.5c.5-2 1-4.7 1.5-6.5C14.8 11.5 15 9.2 15 7c0-3-2.2-5-3-5z" />
               </svg>
             </div>
-            <span className="text-lg font-black tracking-tight text-white">CDG DENTAL</span>
+            <div className="text-left">
+              <span className="text-lg font-black tracking-tight text-slate-900 block leading-none">
+                CDG DENTAL
+              </span>
+              <span className="text-[10px] text-teal-700 font-bold tracking-wider uppercase">
+                Clinic Portal
+              </span>
+            </div>
           </Link>
-          {title && <h2 className="text-2xl font-bold text-white tracking-tight">{title}</h2>}
-          {subtitle && <p className="text-xs text-slate-400 mt-1">{subtitle}</p>}
+          {title && <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{title}</h2>}
+          {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
         </div>
 
         {/* Content Box */}
@@ -138,9 +180,12 @@ export function AuthShell({ children, title, subtitle }: AuthShellProps) {
           {children}
 
           {/* Micro Footer for Right Panel */}
-          <div className="mt-8 text-center">
+          <div className="mt-8 text-center space-y-1">
             <p className="text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
               <span>Restricted System • CDG Dental Practice Management</span>
+            </p>
+            <p className="text-[10px] text-slate-400">
+              Cagayan de Oro City • Centrio Mall & Uptown Branches
             </p>
           </div>
         </div>

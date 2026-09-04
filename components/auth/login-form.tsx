@@ -18,6 +18,8 @@ import {
   UserCheck,
   Shield,
   Info,
+  Building2,
+  Sparkles,
 } from "lucide-react";
 
 export function LoginForm() {
@@ -55,7 +57,7 @@ export function LoginForm() {
       const { data: profile } = await supabase
         .from("profiles")
         .select("role, full_name")
-        .or(`auth_id.eq.${user.id},id.eq.${user.id}`)
+        .or(`id.eq.${user.id}`)
         .maybeSingle();
 
       if (profile?.role) {
@@ -67,7 +69,6 @@ export function LoginForm() {
 
       // Determine destination
       if (redirectTarget) {
-        // Validate if user has permission for the redirect target
         const isSecretaryTarget = redirectTarget.startsWith("/secretary");
         const isClinicalTarget =
           redirectTarget.startsWith("/patients") ||
@@ -106,39 +107,51 @@ export function LoginForm() {
 
   return (
     <div className="w-full">
-      {/* Card Header */}
+      {/* Dental Clinic Header Badge */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-2">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-teal-500/10 text-teal-300 border border-teal-500/20">
-            <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
-            Staff Security Gateway
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-teal-100 text-teal-800 border border-teal-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-pulse" />
+            CDG Dental Practitioner Gateway
+          </span>
+          <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-white px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs">
+            <Building2 className="w-3 h-3 text-teal-600" />
+            CDO Operatory
           </span>
         </div>
-        <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-          Sign in to Portal
+
+        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+          Practitioner Sign In
         </h2>
-        <p className="text-xs sm:text-sm text-slate-400 mt-1">
-          Access clinical charts, secretary appointments, and clinic operations.
+        <p className="text-xs sm:text-sm text-slate-600 mt-1">
+          Access electronic dental records (EDR), chairside odontograms, and front-desk schedule.
         </p>
       </div>
 
       {/* Reason banners if redirected */}
       {reason === "invite_only" && (
-        <div className="mb-5 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-2.5 text-amber-300 text-xs leading-relaxed">
-          <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+        <div className="mb-5 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-2.5 text-amber-800 text-xs leading-relaxed">
+          <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <span>
             Staff registration is by administrator invitation only. If you received an invite link, please use the exact link sent to your email.
           </span>
         </div>
       )}
 
-      {/* Form Card */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/80 border border-white/[0.08] shadow-2xl shadow-black/60 backdrop-blur-2xl">
-        <form onSubmit={handleLogin} className="space-y-4">
+      {/* Crisp White Glassmorphic Form Card */}
+      <div className="relative p-6 sm:p-8 rounded-3xl bg-white/95 border border-slate-200/90 shadow-2xl shadow-slate-300/40 backdrop-blur-xl overflow-hidden">
+        {/* Subtle decorative tooth watermark */}
+        <div className="absolute -top-6 -right-6 w-36 h-36 opacity-[0.03] pointer-events-none text-teal-800">
+          <svg viewBox="0 0 24 24" className="w-full h-full fill-current">
+            <path d="M12 2C9.2 2 7 4 7 7c0 2.2.6 4.5 1.2 6.5.5 1.8 1 4.5 1.5 6.5.3 1.2 1 1.5 1.5 1.5s1.2-.3 1.5-1.5c.5-2 1-4.7 1.5-6.5C14.8 11.5 15 9.2 15 7c0-3-2.2-5-3-5z" />
+          </svg>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-4 relative z-10">
           {/* Error message */}
           {error && (
-            <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/25 flex items-start gap-2.5 text-rose-300 text-xs">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-rose-700 text-xs">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
@@ -147,12 +160,12 @@ export function LoginForm() {
           <div className="space-y-1.5">
             <label
               htmlFor="email"
-              className="block text-xs font-semibold text-slate-300 tracking-wide"
+              className="block text-xs font-bold text-slate-700 tracking-wide"
             >
               Clinic Email
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 id="email"
                 type="email"
@@ -161,7 +174,7 @@ export function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="doctor@cdgdental.com"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-100 placeholder:text-slate-600 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/30 focus:border-teal-400/50 transition-all"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200 text-slate-900 placeholder:text-slate-400 text-xs sm:text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all shadow-2xs"
               />
             </div>
           </div>
@@ -171,19 +184,19 @@ export function LoginForm() {
             <div className="flex items-center justify-between">
               <label
                 htmlFor="password"
-                className="block text-xs font-semibold text-slate-300 tracking-wide"
+                className="block text-xs font-bold text-slate-700 tracking-wide"
               >
                 Password
               </label>
               <Link
                 href="/auth/forgot-password"
-                className="text-xs text-teal-400/90 hover:text-teal-300 hover:underline transition-colors"
+                className="text-xs font-semibold text-teal-700 hover:text-teal-800 hover:underline transition-colors"
               >
                 Forgot password?
               </Link>
             </div>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 id="password"
                 type={showPassword ? "text" : "password"}
@@ -192,12 +205,12 @@ export function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
-                className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-100 placeholder:text-slate-600 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-teal-400/30 focus:border-teal-400/50 transition-all"
+                className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200 text-slate-900 placeholder:text-slate-400 text-xs sm:text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all shadow-2xs"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors p-1"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? (
@@ -214,56 +227,66 @@ export function LoginForm() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-slate-950 bg-gradient-to-r from-teal-400 via-teal-300 to-cyan-400 hover:opacity-95 shadow-lg shadow-teal-500/25 active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3.5 px-4 rounded-xl font-black text-xs sm:text-sm text-white bg-gradient-to-r from-teal-600 via-teal-500 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 shadow-lg shadow-teal-600/25 hover:shadow-xl hover:shadow-teal-600/35 active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
-                  <span>Authenticating...</span>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Authenticating Practitioner...</span>
                 </>
               ) : (
                 <>
-                  <span>Sign In to Dashboard</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>Sign In to Clinical Suite</span>
+                  <ArrowRight className="w-4 h-4 text-white/90" />
                 </>
               )}
             </button>
           </div>
         </form>
 
-        {/* Role Access Indicator Chips */}
-        <div className="mt-6 pt-5 border-t border-white/[0.06]">
-          <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500 mb-2.5">
-            Role Gateways
-          </p>
+        {/* Clinical Role Gateways Matrix */}
+        <div className="mt-6 pt-5 border-t border-slate-100 relative z-10">
+          <div className="flex items-center justify-between mb-2.5">
+            <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+              Authorized Scopes
+            </p>
+            <span className="text-[9px] text-teal-700 font-bold">CDG Clinic RBAC</span>
+          </div>
+
           <div className="grid grid-cols-3 gap-2">
-            <div className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-center">
-              <Stethoscope className="w-3.5 h-3.5 text-emerald-400 mx-auto mb-1" />
-              <div className="text-[10px] font-bold text-slate-300">Dentist</div>
-              <div className="text-[9px] text-slate-500">Charts & Rx</div>
+            <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-100 text-center hover:bg-emerald-50 transition-colors">
+              <div className="w-7 h-7 rounded-lg bg-emerald-100 border border-emerald-200 flex items-center justify-center mx-auto mb-1 text-emerald-700">
+                <Stethoscope className="w-3.5 h-3.5" />
+              </div>
+              <div className="text-[10px] font-bold text-slate-800">Dentist</div>
+              <div className="text-[9px] text-slate-500">Charting & Rx</div>
             </div>
-            <div className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-center">
-              <UserCheck className="w-3.5 h-3.5 text-cyan-400 mx-auto mb-1" />
-              <div className="text-[10px] font-bold text-slate-300">Secretary</div>
+
+            <div className="p-2.5 rounded-xl bg-cyan-50/70 border border-cyan-100 text-center hover:bg-cyan-50 transition-colors">
+              <div className="w-7 h-7 rounded-lg bg-cyan-100 border border-cyan-200 flex items-center justify-center mx-auto mb-1 text-cyan-700">
+                <UserCheck className="w-3.5 h-3.5" />
+              </div>
+              <div className="text-[10px] font-bold text-slate-800">Secretary</div>
               <div className="text-[9px] text-slate-500">Queue & Intake</div>
             </div>
-            <div className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-center">
-              <Shield className="w-3.5 h-3.5 text-violet-400 mx-auto mb-1" />
-              <div className="text-[10px] font-bold text-slate-300">Admin</div>
+
+            <div className="p-2.5 rounded-xl bg-violet-50/70 border border-violet-100 text-center hover:bg-violet-50 transition-colors">
+              <div className="w-7 h-7 rounded-lg bg-violet-100 border border-violet-200 flex items-center justify-center mx-auto mb-1 text-violet-700">
+                <Shield className="w-3.5 h-3.5" />
+              </div>
+              <div className="text-[10px] font-bold text-slate-800">Admin</div>
               <div className="text-[9px] text-slate-500">Full Control</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Staff invite notice */}
-      <div className="mt-6 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] text-center">
-        <p className="text-xs text-slate-400">
-          Need a new staff account?{" "}
-          <span className="text-slate-300 font-medium">
-            Contact your clinic administrator to send an official invitation.
-          </span>
-        </p>
+      {/* Staff Invitation Notice */}
+      <div className="mt-5 p-3.5 rounded-2xl bg-white/80 border border-slate-200/80 shadow-2xs text-center flex items-center justify-center gap-2 text-xs text-slate-600">
+        <Sparkles className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+        <span>
+          New practitioner accounts are provisioned exclusively via administrator invitation.
+        </span>
       </div>
     </div>
   );
