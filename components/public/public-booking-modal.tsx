@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Building,
 } from "lucide-react";
+import { ModalPortal } from "@/components/ui/modal-portal";
 
 interface PublicBookingModalProps {
   isOpen: boolean;
@@ -261,8 +262,9 @@ export function PublicBookingModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <ModalPortal>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Modal Top Header */}
         <div className="bg-gradient-to-r from-teal-600 to-cyan-600 px-6 py-4 text-white flex items-center justify-between">
           <div>
@@ -844,5 +846,6 @@ export function PublicBookingModal({
         )}
       </div>
     </div>
+  </ModalPortal>
   );
 }

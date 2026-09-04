@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { useClinic } from "@/context/clinic-context";
 import { StaffUserRecord, MASTER_ADMIN_ID, MASTER_ADMIN_EMAIL } from "@/types/admin";
 import { InviteStaffModal } from "@/components/admin/invite-staff-modal";
@@ -24,6 +25,7 @@ import {
   Building2,
   Loader2,
   AlertTriangle,
+  Sparkles,
 } from "lucide-react";
 
 export default function AdminUsersPage() {
@@ -173,27 +175,53 @@ export default function AdminUsersPage() {
   const revokedCount = staffList.filter((s) => s.status === "revoked").length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* ── Admin Navigation Suite Tabs ── */}
+      <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-900 rounded-2xl w-fit border border-slate-200/80 dark:border-slate-800">
+        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-teal-50 text-teal-700 dark:bg-teal-950/80 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+          <Users className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+          <span>Staff Directory & Access</span>
+        </div>
+        <Link
+          href="/admin/branches"
+          className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+        >
+          <Building2 className="w-3.5 h-3.5 text-slate-500" />
+          <span>Clinic Branches & Locations</span>
+        </Link>
+        <Link
+          href="/admin/dentists"
+          className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-slate-500" />
+          <span>Dentist Directory & Content</span>
+        </Link>
+      </div>
+
       {/* ── Page Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-violet-500/15 text-violet-300 border border-violet-500/25">
-              <Shield className="w-3 h-3 text-violet-400" />
-              Administrative Control
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800">
+              <Shield className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+              Clinic Administration
+            </span>
+            <span className="text-xs text-slate-300 dark:text-slate-600">•</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              Role Provisioning & Access Control
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Staff & User Management
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
+            Staff Directory & User Management
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Invite clinicians, provision front desk personnel, and manage role permissions.
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Manage practitioner credentials, role permissions, branch assignments, and invitations.
           </p>
         </div>
 
         <button
           onClick={() => setIsInviteModalOpen(true)}
-          className="self-start sm:self-auto py-2.5 px-4 rounded-xl font-bold text-xs text-slate-950 bg-gradient-to-r from-teal-400 via-teal-300 to-cyan-400 hover:opacity-95 shadow-lg shadow-teal-500/25 active:scale-[0.99] transition-all flex items-center gap-2 cursor-pointer shrink-0"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm hover:shadow transition-all cursor-pointer shrink-0 self-start sm:self-auto"
         >
           <UserPlus className="w-4 h-4" />
           <span>Invite New Staff</span>
@@ -202,102 +230,134 @@ export default function AdminUsersPage() {
 
       {/* ── Stat Metric Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/70 border border-white/[0.06] backdrop-blur-md">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-400">Total Staff</span>
-            <div className="w-8 h-8 rounded-xl bg-white/[0.04] flex items-center justify-center text-slate-300">
+        {/* Card 1: Total Staff */}
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Total Staff
+            </span>
+            <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
               <Users className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-white">{totalCount}</div>
-          <div className="text-[11px] text-slate-500 mt-1">Practitioners & front-desk</div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 font-mono">
+              {totalCount}
+            </span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Team Members</span>
+          </div>
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Practitioners & front-desk</p>
         </div>
 
-        <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/70 border border-white/[0.06] backdrop-blur-md">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-emerald-300">Doctors / Dentists</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+        {/* Card 2: Doctors / Dentists */}
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">
+              Doctors / Dentists
+            </span>
+            <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-600 dark:text-teal-400">
               <Stethoscope className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-white">{dentistCount}</div>
-          <div className="text-[11px] text-slate-500 mt-1">Clinical chart access</div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 font-mono">
+              {dentistCount}
+            </span>
+            <span className="text-xs text-teal-600 dark:text-teal-400 font-medium">Clinicians</span>
+          </div>
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Clinical charting & treatment</p>
         </div>
 
-        <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/70 border border-white/[0.06] backdrop-blur-md">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-cyan-300">Secretaries</span>
-            <div className="w-8 h-8 rounded-xl bg-cyan-500/15 flex items-center justify-center text-cyan-400">
+        {/* Card 3: Secretaries */}
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
+              Secretaries
+            </span>
+            <div className="p-2 rounded-xl bg-cyan-50 dark:bg-cyan-950 text-cyan-600 dark:text-cyan-400">
               <UserCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-white">{secretaryCount}</div>
-          <div className="text-[11px] text-slate-500 mt-1">Reception & queue desk</div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 font-mono">
+              {secretaryCount}
+            </span>
+            <span className="text-xs text-cyan-600 dark:text-cyan-400 font-medium">Front Desk</span>
+          </div>
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Queue & cashier desk</p>
         </div>
 
-        <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/70 border border-white/[0.06] backdrop-blur-md">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-rose-300">Access Revoked</span>
-            <div className="w-8 h-8 rounded-xl bg-rose-500/15 flex items-center justify-center text-rose-400">
+        {/* Card 4: Access Revoked */}
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+              Access Revoked
+            </span>
+            <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400">
               <ShieldAlert className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-white">{revokedCount}</div>
-          <div className="text-[11px] text-slate-500 mt-1">Banned from system</div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-extrabold text-rose-600 dark:text-rose-400 font-mono">
+              {revokedCount}
+            </span>
+            <span className="text-xs text-rose-600 dark:text-rose-400 font-medium">Banned</span>
+          </div>
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Restricted from system</p>
         </div>
       </div>
 
       {/* ── Search and Filter Toolbar ── */}
-      <div className="p-4 rounded-2xl bg-slate-900/70 border border-white/[0.06] backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
         <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by name or email..."
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-100 placeholder:text-slate-600 text-xs focus:outline-none focus:ring-2 focus:ring-teal-400/30"
+            className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-all"
           />
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
           {/* Role Filter */}
-          <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-xl px-2 py-1 text-xs">
-            <Filter className="w-3.5 h-3.5 text-slate-500" />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <Filter className="w-3.5 h-3.5 text-slate-400" />
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="bg-transparent text-slate-300 text-xs focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-semibold focus:outline-none cursor-pointer"
             >
-              <option value="all" className="bg-slate-900">All Roles</option>
-              <option value="dentist" className="bg-slate-900">Dentists</option>
-              <option value="secretary" className="bg-slate-900">Secretaries</option>
-              <option value="admin" className="bg-slate-900">Admins</option>
+              <option value="all">All Roles ({totalCount})</option>
+              <option value="dentist">Dentists ({dentistCount})</option>
+              <option value="secretary">Secretaries ({secretaryCount})</option>
+              <option value="admin">Admins</option>
             </select>
           </div>
 
           {/* Status Filter */}
-          <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-2 py-1 text-xs">
+          <div className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-semibold text-slate-700 dark:text-slate-300">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-transparent text-slate-300 text-xs focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-semibold focus:outline-none cursor-pointer"
             >
-              <option value="all" className="bg-slate-900">All Statuses</option>
-              <option value="active" className="bg-slate-900">Active</option>
-              <option value="pending_invite" className="bg-slate-900">Pending Invite</option>
-              <option value="revoked" className="bg-slate-900">Revoked</option>
+              <option value="all">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="pending_invite">Pending Invite</option>
+              <option value="revoked">Revoked</option>
             </select>
           </div>
         </div>
       </div>
 
       {/* ── Staff Directory Table ── */}
-      <div className="rounded-2xl bg-slate-900/80 border border-white/[0.08] overflow-hidden shadow-xl shadow-black/40">
+      <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-white/[0.06] bg-white/[0.02] text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+              <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 <th className="py-3.5 px-4 sm:px-6">Staff Practitioner</th>
                 <th className="py-3.5 px-4">Role</th>
                 <th className="py-3.5 px-4">Assigned Branch</th>
@@ -305,18 +365,18 @@ export default function AdminUsersPage() {
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.04] text-xs">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
               {isLoading ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-slate-500">
-                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-teal-400" />
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-teal-600" />
                     <span>Loading staff directory...</span>
                   </td>
                 </tr>
               ) : filteredStaff.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-slate-500">
-                    <Users className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                    <Users className="w-8 h-8 mx-auto mb-2 opacity-30 text-slate-400" />
                     <span>No staff members match the selected filters.</span>
                   </td>
                 </tr>
@@ -330,20 +390,23 @@ export default function AdminUsersPage() {
                   const roleBadges = {
                     dentist: {
                       label: "Dentist",
-                      color: "text-emerald-300",
-                      bg: "bg-emerald-500/10 border-emerald-500/25",
+                      color: "text-emerald-700 dark:text-emerald-300",
+                      bg: "bg-emerald-50 border-emerald-200/80 dark:bg-emerald-950/60 dark:border-emerald-800/60",
+                      avatarBg: "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-300",
                       icon: Stethoscope,
                     },
                     secretary: {
                       label: "Secretary",
-                      color: "text-cyan-300",
-                      bg: "bg-cyan-500/10 border-cyan-500/25",
+                      color: "text-cyan-700 dark:text-cyan-300",
+                      bg: "bg-cyan-50 border-cyan-200/80 dark:bg-cyan-950/60 dark:border-cyan-800/60",
+                      avatarBg: "bg-cyan-50 border-cyan-200 text-cyan-700 dark:bg-cyan-950 dark:border-cyan-800 dark:text-cyan-300",
                       icon: UserCheck,
                     },
                     admin: {
                       label: "Admin",
-                      color: "text-violet-300",
-                      bg: "bg-violet-500/10 border-violet-500/25",
+                      color: "text-violet-700 dark:text-violet-300",
+                      bg: "bg-violet-50 border-violet-200/80 dark:bg-violet-950/60 dark:border-violet-800/60",
+                      avatarBg: "bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950 dark:border-violet-800 dark:text-violet-300",
                       icon: Shield,
                     },
                   };
@@ -354,18 +417,18 @@ export default function AdminUsersPage() {
                   const statusBadges = {
                     active: {
                       label: "Active",
-                      classes: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-                      dot: "bg-emerald-400 animate-pulse",
+                      classes: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800",
+                      dot: "bg-emerald-500",
                     },
                     revoked: {
                       label: "Access Revoked",
-                      classes: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+                      classes: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800",
                       dot: "bg-rose-500",
                     },
                     pending_invite: {
                       label: "Pending Invite",
-                      classes: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-                      dot: "bg-amber-400",
+                      classes: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800",
+                      dot: "bg-amber-500 animate-pulse",
                     },
                   };
                   const sBadge = statusBadges[user.status];
@@ -373,24 +436,26 @@ export default function AdminUsersPage() {
                   return (
                     <tr
                       key={user.id}
-                      className="hover:bg-white/[0.02] transition-colors group"
+                      className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
                     >
                       {/* Name & Email */}
                       <td className="py-4 px-4 sm:px-6">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-white/[0.08] flex items-center justify-center font-bold text-xs text-teal-300 shrink-0">
+                          <div
+                            className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs shrink-0 ${rBadge.avatarBg}`}
+                          >
                             {user.full_name.charAt(0)}
                           </div>
                           <div>
-                            <div className="font-bold text-white flex items-center gap-1.5">
+                            <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                               <span>{user.full_name}</span>
                               {isMasterAdmin && (
-                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-violet-500/20 text-violet-300 font-bold border border-violet-500/30">
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300 font-extrabold border border-violet-200 dark:border-violet-800">
                                   MASTER
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-400 mt-0.5">
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                               {user.email || "No email linked"}
                             </div>
                           </div>
@@ -400,7 +465,7 @@ export default function AdminUsersPage() {
                       {/* Role */}
                       <td className="py-4 px-4">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-semibold border ${rBadge.bg} ${rBadge.color}`}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${rBadge.bg} ${rBadge.color}`}
                         >
                           <RoleIcon className="w-3.5 h-3.5" />
                           <span>{rBadge.label}</span>
@@ -408,9 +473,9 @@ export default function AdminUsersPage() {
                       </td>
 
                       {/* Branch */}
-                      <td className="py-4 px-4 text-slate-300">
+                      <td className="py-4 px-4 text-slate-600 dark:text-slate-300">
                         <div className="flex items-center gap-1.5">
-                          <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                          <Building2 className="w-3.5 h-3.5 text-slate-400" />
                           <span>{user.branch_name || "All Branches"}</span>
                         </div>
                       </td>
@@ -418,7 +483,7 @@ export default function AdminUsersPage() {
                       {/* Status */}
                       <td className="py-4 px-4">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${sBadge.classes}`}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${sBadge.classes}`}
                         >
                           <span className={`w-1.5 h-1.5 rounded-full ${sBadge.dot}`} />
                           <span>{sBadge.label}</span>
@@ -429,9 +494,9 @@ export default function AdminUsersPage() {
                       <td className="py-4 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           {isActionLoading ? (
-                            <Loader2 className="w-4 h-4 animate-spin text-teal-400" />
+                            <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
                           ) : isMasterAdmin ? (
-                            <span className="text-[11px] text-slate-500 italic pr-2">
+                            <span className="text-[11px] text-slate-400 italic pr-2">
                               Protected Root
                             </span>
                           ) : (
@@ -441,10 +506,10 @@ export default function AdminUsersPage() {
                                 <button
                                   onClick={() => handleCopyInvite(user)}
                                   title="Copy activation invite link"
-                                  className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/25 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800 transition-colors cursor-pointer"
                                 >
                                   {copiedTokenId === user.id ? (
-                                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
                                   ) : (
                                     <Copy className="w-3.5 h-3.5" />
                                   )}
@@ -456,7 +521,7 @@ export default function AdminUsersPage() {
                                 <button
                                   onClick={() => handleRestore(user)}
                                   title="Restore staff access"
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/25 text-[11px] font-semibold transition-colors cursor-pointer"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 text-xs font-semibold transition-colors cursor-pointer"
                                 >
                                   <RotateCcw className="w-3 h-3" />
                                   <span>Restore</span>
@@ -465,7 +530,7 @@ export default function AdminUsersPage() {
                                 <button
                                   onClick={() => handleRevoke(user)}
                                   title="Revoke access immediately"
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/25 text-[11px] font-semibold transition-colors cursor-pointer"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/50 text-xs font-semibold transition-colors cursor-pointer"
                                 >
                                   <Ban className="w-3 h-3" />
                                   <span>Revoke</span>
@@ -476,7 +541,7 @@ export default function AdminUsersPage() {
                               <button
                                 onClick={() => handleDelete(user)}
                                 title="Delete user"
-                                className="p-1.5 rounded-lg bg-white/[0.04] hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-white/[0.06] hover:border-rose-500/30 transition-colors cursor-pointer"
+                                className="p-1.5 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-200 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-rose-950 dark:hover:text-rose-300 transition-colors cursor-pointer"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>

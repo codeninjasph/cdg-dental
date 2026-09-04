@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { ToothRecord, ToothStatus } from "@/types/dental";
 import { TOOTH_METADATA, TOOTH_STATUS_CONFIG } from "@/lib/tooth-data";
 import { X, Check, Activity, FileText } from "lucide-react";
+import { ModalPortal } from "@/components/ui/modal-portal";
 
 interface ToothModalProps {
   isOpen: boolean;
@@ -66,8 +67,9 @@ export function ToothModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden transition-all">
+    <ModalPortal>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden transition-all">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
           <div>
@@ -199,5 +201,6 @@ export function ToothModal({
         </div>
       </div>
     </div>
+  </ModalPortal>
   );
 }

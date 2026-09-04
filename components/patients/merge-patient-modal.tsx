@@ -19,6 +19,7 @@ import {
   ChevronRight,
   ChevronLeft,
 } from "lucide-react";
+import { ModalPortal } from "@/components/ui/modal-portal";
 
 interface Patient {
   id: string;
@@ -271,8 +272,9 @@ export function MergePatientModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden max-h-[90vh] flex flex-col">
+    <ModalPortal>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden max-h-[90vh] flex flex-col">
         {/* ── Header ── */}
         <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -717,5 +719,6 @@ export function MergePatientModal({
         )}
       </div>
     </div>
+  </ModalPortal>
   );
 }

@@ -8,6 +8,7 @@ import { Appointment, OutstandingBalance, Treatment, Patient } from "@/types/den
 import { AppointmentModal } from "@/components/appointments/appointment-modal";
 import { PatientRegistrationModal } from "@/components/patients/patient-registration-modal";
 import { PaymentModal } from "@/components/billing/payment-modal";
+import { InviteStaffModal } from "@/components/admin/invite-staff-modal";
 import {
   Calendar,
   Users,
@@ -25,10 +26,13 @@ import {
   QrCode,
   ShieldAlert,
   UserCheck,
+  Shield,
+  UserPlus,
+  Building2,
 } from "lucide-react";
 
 export default function DashboardPage() {
-  const { currentRole, currentStaff, activeBranch, showToast, refreshTrigger, triggerRefresh } = useClinic();
+  const { currentRole, currentStaff, activeBranch, showToast, refreshTrigger, triggerRefresh, isAdmin } = useClinic();
   const [appointments, setAppointments] = useState<any[]>([]);
   const [balances, setBalances] = useState<OutstandingBalance[]>([]);
   const [recentTreatments, setRecentTreatments] = useState<any[]>([]);
@@ -38,6 +42,7 @@ export default function DashboardPage() {
   // Modals state
   const [isApptModalOpen, setIsApptModalOpen] = useState(false);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
+  const [isInviteStaffOpen, setIsInviteStaffOpen] = useState(false);
   const [paymentBill, setPaymentBill] = useState<{
     id: string;
     invoice_number: string;
@@ -147,6 +152,31 @@ export default function DashboardPage() {
 
         {/* Action Buttons */}
         <div className="relative z-10 flex flex-wrap items-center gap-2.5">
+          {isAdmin && (
+            <>
+              <Link
+                href="/admin/users"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs shadow-md shadow-violet-600/30 hover:shadow-lg transition-all cursor-pointer"
+              >
+                <Shield className="w-4 h-4" />
+                <span>Staff & Access</span>
+              </Link>
+              <Link
+                href="/admin/branches"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600/80 hover:bg-teal-500 text-white font-bold text-xs shadow-md shadow-teal-600/30 hover:shadow-lg transition-all cursor-pointer"
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Branches</span>
+              </Link>
+              <button
+                onClick={() => setIsInviteStaffOpen(true)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-500/20 hover:bg-violet-500/30 text-violet-200 border border-violet-400/40 font-bold text-xs backdrop-blur-sm transition-all cursor-pointer"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>+ Invite Staff</span>
+              </button>
+            </>
+          )}
           <Link
             href="/secretary"
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs shadow-md shadow-teal-500/25 hover:shadow-lg transition-all cursor-pointer"
@@ -546,6 +576,12 @@ export default function DashboardPage() {
         onClose={() => setPaymentBill(null)}
         onSuccess={triggerRefresh}
         bill={paymentBill}
+      />
+
+      <InviteStaffModal
+        isOpen={isInviteStaffOpen}
+        onClose={() => setIsInviteStaffOpen(false)}
+        onSuccess={triggerRefresh}
       />
     </div>
   );

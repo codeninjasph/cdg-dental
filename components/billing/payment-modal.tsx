@@ -5,6 +5,7 @@ import { PaymentMethod, TreatmentBill } from "@/types/dental";
 import { createClient } from "@/lib/supabase/client";
 import { useClinic } from "@/context/clinic-context";
 import { X, DollarSign, QrCode, CreditCard, Landmark, CheckCircle2, Banknote } from "lucide-react";
+import { ModalPortal } from "@/components/ui/modal-portal";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -76,8 +77,9 @@ export function PaymentModal({ isOpen, onClose, onSuccess, bill }: PaymentModalP
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+    <ModalPortal>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
           <div>
@@ -265,5 +267,6 @@ export function PaymentModal({ isOpen, onClose, onSuccess, bill }: PaymentModalP
         </form>
       </div>
     </div>
+  </ModalPortal>
   );
 }

@@ -21,6 +21,8 @@ interface ClinicContextType {
   setActiveBranch: (b: Branch) => void;
   staffList: Profile[];
   currentRole: UserRole;
+  actualRole: UserRole;
+  isAdmin: boolean;
   setCurrentRole: (role: UserRole) => void;
   currentStaff: Profile | null;
   setCurrentStaff: (staff: Profile) => void;
@@ -29,6 +31,7 @@ interface ClinicContextType {
   removeToast: (id: string) => void;
   refreshTrigger: number;
   triggerRefresh: () => void;
+  refreshBranches: () => Promise<void>;
 }
 
 const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
@@ -38,6 +41,8 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   const [activeBranch, setActiveBranch] = useState<Branch | null>(null);
   const [staffList, setStaffList] = useState<Profile[]>([]);
   const [currentRole, setCurrentRole] = useState<UserRole>("dentist");
+  const [actualRole, setActualRole] = useState<UserRole>("dentist");
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [currentStaff, setCurrentStaff] = useState<Profile | null>(null);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
@@ -58,15 +63,31 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  const refreshBranches = async () => {
+    try {
+      const { data: bData } = await supabase
+        .from("branches")
+        .select("*")
+        .eq("is_active", true)
+        .order("name");
+      if (bData && bData.length > 0) {
+        setBranches(bData);
+        setActiveBranch((prev) => {
+          if (!prev) return bData[0];
+          const match = bData.find((b) => b.id === prev.id);
+          return match || bData[0];
+        });
+      }
+    } catch (e) {
+      console.error("Failed to refresh branches:", e);
+    }
+  };
+
   useEffect(() => {
     async function loadMeta() {
       try {
         // 1. Fetch branches
-        const { data: bData } = await supabase.from("branches").select("*").order("name");
-        if (bData && bData.length > 0) {
-          setBranches(bData);
-          setActiveBranch(bData[0]);
-        }
+        await refreshBranches();
 
         // 2. Fetch staff profiles
         const { data: sData } = await supabase.from("profiles").select("*").order("full_name");
@@ -84,18 +105,44 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
           data: { user },
         } = await supabase.auth.getUser();
 
+        let detectedRole: UserRole = "dentist";
+        let isUserAdmin = false;
+
         if (user) {
           // Find matching profile for this logged-in auth user
           const matchingProfile = normalizedStaff.find(
             (s: any) => s.auth_id === user.id || s.id === user.id
           );
 
-          if (matchingProfile) {
-            setCurrentStaff(matchingProfile);
-            setCurrentRole(matchingProfile.role);
-            setRoleCookie(matchingProfile.role);
-            return;
+          if (
+            user.email === "admin@gmail.com" ||
+            user.id === "00000000-0000-0000-0000-000000000030" ||
+            (user.user_metadata?.role as string) === "admin" ||
+            matchingProfile?.role === "admin"
+          ) {
+            isUserAdmin = true;
+            detectedRole = "admin";
+          } else if (matchingProfile) {
+            detectedRole = matchingProfile.role;
           }
+
+          setIsAdmin(isUserAdmin);
+          setActualRole(isUserAdmin ? "admin" : detectedRole);
+
+          // For admin users, prioritize explicit cookie preview role or default to admin
+          const savedCookieRole = getRoleFromCookie();
+          const activeRole: UserRole = isUserAdmin && savedCookieRole ? savedCookieRole : detectedRole;
+
+          setCurrentRole(activeRole);
+          setRoleCookie(activeRole);
+
+          const activeStaff =
+            matchingProfile ||
+            normalizedStaff.find((s) => s.role === activeRole) ||
+            normalizedStaff[0];
+
+          if (activeStaff) setCurrentStaff(activeStaff);
+          return;
         }
 
         // Fallback: check existing role cookie or pick first staff
@@ -121,6 +168,11 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_OUT") {
         setCurrentStaff(null);
+        setIsAdmin(false);
+        setActualRole("dentist");
+      } else if (event === "SIGNED_IN" || event === "USER_UPDATED" || event === "TOKEN_REFRESHED") {
+        // Re-sync metadata and user role from live profile
+        loadMeta();
       }
     });
 
@@ -149,6 +201,8 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         setActiveBranch,
         staffList,
         currentRole,
+        actualRole,
+        isAdmin,
         setCurrentRole: handleRoleChange,
         currentStaff,
         setCurrentStaff,
@@ -157,6 +211,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         removeToast,
         refreshTrigger,
         triggerRefresh,
+        refreshBranches,
       }}
     >
       {children}

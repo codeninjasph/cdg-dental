@@ -33,6 +33,7 @@ export function ClinicNavbar() {
     currentStaff,
     staffList,
     setCurrentStaff,
+    isAdmin,
   } = useClinic();
 
   const [branchOpen, setBranchOpen] = useState(false);
@@ -62,6 +63,7 @@ export function ClinicNavbar() {
   ];
 
   const navLinks = allNavLinks.filter((link) => {
+    if (isAdmin) return true;
     if (!link.roles) return true;
     return link.roles.includes(currentRole);
   });
@@ -230,6 +232,18 @@ export function ClinicNavbar() {
                           {b.name}
                         </button>
                       ))}
+                      {isAdmin && (
+                        <div className="p-2 border-t border-white/[0.06] bg-slate-950/40">
+                          <Link
+                            href="/admin/branches"
+                            onClick={() => setBranchOpen(false)}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 transition-colors cursor-pointer"
+                          >
+                            <Building2 className="w-3.5 h-3.5" />
+                            <span>Manage Clinic Branches</span>
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -240,20 +254,20 @@ export function ClinicNavbar() {
 
               {/* Role / Staff View & Admin Switcher */}
               <div className="relative" ref={roleRef}>
-                {currentRole === "admin" ? (
-                  // Admin Debug Role Switcher Dropdown
+                {isAdmin ? (
+                  // Admin Dynamic Role Switcher Dropdown (Never locked out)
                   <button
                     onClick={() => {
                       setRoleOpen((o) => !o);
                       setBranchOpen(false);
                     }}
                     className={`flex items-center gap-2 pl-2.5 pr-3 py-2 rounded-xl border ${role.bg} ${role.glow} shadow-md text-xs font-semibold transition-all duration-200 cursor-pointer hover:brightness-125`}
-                    title="Admin Debug: Switch Active Role View"
+                    title="Administrator Switcher: Toggle Active Role View"
                   >
                     <RoleIcon className={`w-3.5 h-3.5 shrink-0 ${role.color}`} />
                     <div className="flex flex-col items-start leading-none">
                       <span className="text-[9px] uppercase tracking-widest text-violet-400 font-bold flex items-center gap-1">
-                        Admin Mode
+                        Admin Mode {currentRole !== "admin" && `• ${currentRole.toUpperCase()}`}
                         <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
                       </span>
                       <span className={`text-xs font-bold ${role.color} mt-0.5`}>
@@ -283,15 +297,21 @@ export function ClinicNavbar() {
                   </div>
                 )}
 
-                {/* Admin-only switcher dropdown */}
-                {roleOpen && currentRole === "admin" && (
-                  <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl bg-slate-900 border border-white/[0.08] shadow-2xl shadow-black/60 backdrop-blur-xl overflow-hidden z-50">
-                    <div className="px-3 py-2 border-b border-white/[0.06] flex items-center justify-between">
-                      <p className="text-[10px] uppercase font-bold tracking-wider text-violet-400">
-                        Admin Debug Switcher
-                      </p>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-mono">
-                        DEV
+                {/* Admin switcher dropdown */}
+                {roleOpen && isAdmin && (
+                  <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl bg-slate-900 border border-white/[0.08] shadow-2xl shadow-black/60 backdrop-blur-xl overflow-hidden z-50">
+                    <div className="px-3.5 py-2.5 border-b border-white/[0.06] flex items-center justify-between bg-violet-950/20">
+                      <div>
+                        <p className="text-[10px] uppercase font-bold tracking-wider text-violet-300 flex items-center gap-1">
+                          <Shield className="w-3 h-3" />
+                          Role Viewport Switcher
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          Toggle viewing perspectives as Admin
+                        </p>
+                      </div>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-mono font-bold">
+                        ADMIN
                       </span>
                     </div>
                     {(["dentist", "secretary", "admin"] as UserRole[]).map(
@@ -305,7 +325,7 @@ export function ClinicNavbar() {
                               setCurrentRole(r);
                               setRoleOpen(false);
                             }}
-                            className={`w-full flex items-center gap-3 px-3 py-3 text-xs transition-colors cursor-pointer ${
+                            className={`w-full flex items-center gap-3 px-3.5 py-3 text-xs transition-colors cursor-pointer ${
                               currentRole === r
                                 ? `bg-white/[0.06] ${cfg.color}`
                                 : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
@@ -323,7 +343,7 @@ export function ClinicNavbar() {
                                   ? "Clinical charting & treatments"
                                   : r === "secretary"
                                   ? "Front-desk, queue & POS"
-                                  : "Full system access"}
+                                  : "Full system access & security"}
                               </p>
                             </div>
                             {currentRole === r && (
@@ -335,7 +355,31 @@ export function ClinicNavbar() {
                         );
                       }
                     )}
-                    <div className="border-t border-white/[0.06] p-2">
+                    <div className="border-t border-white/[0.06] p-2 space-y-1 bg-slate-950/40">
+                      <Link
+                        href="/admin/users"
+                        onClick={() => setRoleOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-violet-300 hover:text-white bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 font-bold transition-all cursor-pointer"
+                      >
+                        <Shield className="w-3.5 h-3.5 text-violet-400" />
+                        <span>Staff Directory & Access Control</span>
+                      </Link>
+                      <Link
+                        href="/admin/branches"
+                        onClick={() => setRoleOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-teal-300 hover:text-white bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/20 font-bold transition-all cursor-pointer"
+                      >
+                        <Building2 className="w-3.5 h-3.5 text-teal-400" />
+                        <span>Clinic Branches & Facilities</span>
+                      </Link>
+                      <Link
+                        href="/admin/dentists"
+                        onClick={() => setRoleOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-amber-300 hover:text-white bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 font-bold transition-all cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Dentist Directory & Content</span>
+                      </Link>
                       <Link
                         href="/"
                         onClick={() => setRoleOpen(false)}

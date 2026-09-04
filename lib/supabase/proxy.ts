@@ -44,8 +44,11 @@ export async function updateSession(request: NextRequest) {
     return redirectResponse;
   };
 
-  const { data } = await supabase.auth.getClaims();
-  const user = data?.claims;
+  // Securely retrieve user and claims
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const pathname = request.nextUrl.pathname;
 
   // List of paths requiring authenticated clinic personnel
@@ -74,17 +77,46 @@ export async function updateSession(request: NextRequest) {
   // 2. Authenticated user logic
   if (user) {
     const rawCookieRole = request.cookies.get(ROLE_COOKIE_NAME)?.value;
-    const userRole = normalizeRole(rawCookieRole);
+    const metadataRole = (user.user_metadata?.role as string) || undefined;
+    const isMasterAdmin =
+      user.email === "admin@gmail.com" ||
+      user.id === "00000000-0000-0000-0000-000000000030" ||
+      metadataRole === "admin";
+
+    const userRole = isMasterAdmin && rawCookieRole
+      ? normalizeRole(rawCookieRole)
+      : isMasterAdmin
+      ? "admin"
+      : normalizeRole(rawCookieRole || metadataRole);
+
+    // If cookie was missing but metadata or master admin had role, set cookie in response
+    if (!rawCookieRole) {
+      supabaseResponse.cookies.set(ROLE_COOKIE_NAME, userRole, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 7,
+        sameSite: "lax",
+      });
+    }
 
     // If logged in and visiting login page, redirect to default landing page
     if (pathname === "/auth/login") {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = userRole === "secretary" ? "/secretary" : "/portal";
+      redirectUrl.pathname =
+        isMasterAdmin
+          ? "/admin/users"
+          : userRole === "secretary"
+          ? "/secretary"
+          : "/portal";
       redirectUrl.search = "";
       return makeRedirect(redirectUrl);
     }
 
-    // Role-Based Access Control (RBAC) Rules:
+    // Administrators have full access across all views and cannot be locked out
+    if (isMasterAdmin) {
+      return supabaseResponse;
+    }
+
+    // Role-Based Access Control (RBAC) Rules for Non-Admins:
     // Rule A: /secretary is BLOCKED for dentists (secretary + admin allowed)
     if (pathname.startsWith("/secretary")) {
       if (userRole === "dentist") {

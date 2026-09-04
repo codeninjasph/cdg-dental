@@ -13,6 +13,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://cdgdental.ph"),
   title: "CDG Dental Clinic — Premier Dental Clinic in Cagayan de Oro City | Cosmetic, Ortho & Implants",
   description:
     "Trusted modern dental clinic in Cagayan de Oro City (CDO), Northern Mindanao. Advanced smile makeovers, clear aligners, dental implants, and gentle general dentistry in Limketkai Downtown and Pueblo de Oro Uptown.",

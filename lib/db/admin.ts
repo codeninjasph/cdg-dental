@@ -274,3 +274,602 @@ export async function deleteStaffUser(userId: string): Promise<void> {
   await db.query("DELETE FROM auth.identities WHERE user_id = $1::uuid", [userId]);
   await db.query("DELETE FROM auth.users WHERE id = $1::uuid", [userId]);
 }
+
+export interface BranchWithStats {
+  id: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  is_active: boolean;
+  created_at: string;
+  appointment_count: number;
+  staff_count: number;
+}
+
+/**
+ * List all clinic branches joined with dependent appointment & staff counts
+ */
+export async function listBranchesWithStatsAdmin(): Promise<BranchWithStats[]> {
+  const db = getPool();
+  const query = `
+    SELECT 
+      b.id,
+      b.name,
+      b.address,
+      b.phone,
+      b.email,
+      b.is_active,
+      b.created_at,
+      COUNT(DISTINCT a.id)::int AS appointment_count,
+      COUNT(DISTINCT p.id)::int AS staff_count
+    FROM public.branches b
+    LEFT JOIN public.appointments a ON a.branch_id = b.id
+    LEFT JOIN public.profiles p ON p.branch_id = b.id
+    GROUP BY b.id
+    ORDER BY b.created_at ASC;
+  `;
+
+  const { rows } = await db.query(query);
+  return rows.map((r: any) => ({
+    id: r.id,
+    name: r.name,
+    address: r.address || null,
+    phone: r.phone || null,
+    email: r.email || null,
+    is_active: Boolean(r.is_active),
+    created_at: r.created_at,
+    appointment_count: Number(r.appointment_count || 0),
+    staff_count: Number(r.staff_count || 0),
+  }));
+}
+
+/**
+ * Create a new clinic branch
+ */
+export async function createBranchAdmin(data: {
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  is_active?: boolean;
+}): Promise<BranchWithStats> {
+  const db = getPool();
+
+  const query = `
+    INSERT INTO public.branches (name, address, phone, email, is_active)
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING id, name, address, phone, email, is_active, created_at;
+  `;
+
+  const { rows } = await db.query(query, [
+    data.name.trim(),
+    data.address?.trim() || null,
+    data.phone?.trim() || null,
+    data.email?.trim()?.toLowerCase() || null,
+    data.is_active !== undefined ? data.is_active : true,
+  ]);
+
+  const created = rows[0];
+  return {
+    id: created.id,
+    name: created.name,
+    address: created.address,
+    phone: created.phone,
+    email: created.email,
+    is_active: Boolean(created.is_active),
+    created_at: created.created_at,
+    appointment_count: 0,
+    staff_count: 0,
+  };
+}
+
+/**
+ * Update an existing clinic branch
+ */
+export async function updateBranchAdmin(
+  id: string,
+  data: Partial<{
+    name: string;
+    address: string | null;
+    phone: string | null;
+    email: string | null;
+    is_active: boolean;
+  }>
+): Promise<BranchWithStats> {
+  const db = getPool();
+
+  const setClauses: string[] = [];
+  const values: any[] = [];
+  let paramIndex = 1;
+
+  if (data.name !== undefined) {
+    setClauses.push(`name = $${paramIndex++}`);
+    values.push(data.name.trim());
+  }
+  if (data.address !== undefined) {
+    setClauses.push(`address = $${paramIndex++}`);
+    values.push(data.address ? data.address.trim() : null);
+  }
+  if (data.phone !== undefined) {
+    setClauses.push(`phone = $${paramIndex++}`);
+    values.push(data.phone ? data.phone.trim() : null);
+  }
+  if (data.email !== undefined) {
+    setClauses.push(`email = $${paramIndex++}`);
+    values.push(data.email ? data.email.trim().toLowerCase() : null);
+  }
+  if (data.is_active !== undefined) {
+    setClauses.push(`is_active = $${paramIndex++}`);
+    values.push(Boolean(data.is_active));
+  }
+
+  if (setClauses.length === 0) {
+    throw new Error("No fields provided to update.");
+  }
+
+  values.push(id);
+  const query = `
+    UPDATE public.branches
+    SET ${setClauses.join(", ")}
+    WHERE id = $${paramIndex}::uuid
+    RETURNING id, name, address, phone, email, is_active, created_at;
+  `;
+
+  const { rows } = await db.query(query, values);
+  if (rows.length === 0) {
+    throw new Error("Branch not found.");
+  }
+
+  // Get current stats
+  const statsQuery = `
+    SELECT 
+      COUNT(DISTINCT a.id)::int AS appointment_count,
+      COUNT(DISTINCT p.id)::int AS staff_count
+    FROM public.branches b
+    LEFT JOIN public.appointments a ON a.branch_id = b.id
+    LEFT JOIN public.profiles p ON p.branch_id = b.id
+    WHERE b.id = $1::uuid
+    GROUP BY b.id;
+  `;
+  const statsRes = await db.query(statsQuery, [id]);
+  const stats = statsRes.rows[0] || { appointment_count: 0, staff_count: 0 };
+
+  const updated = rows[0];
+  return {
+    id: updated.id,
+    name: updated.name,
+    address: updated.address,
+    phone: updated.phone,
+    email: updated.email,
+    is_active: Boolean(updated.is_active),
+    created_at: updated.created_at,
+    appointment_count: Number(stats.appointment_count || 0),
+    staff_count: Number(stats.staff_count || 0),
+  };
+}
+
+/**
+ * Remove or safely archive a clinic branch
+ */
+export async function deleteBranchAdmin(
+  id: string,
+  force = false
+): Promise<{ deleted: boolean; deactivated: boolean; message: string }> {
+  const db = getPool();
+
+  // Check dependencies
+  const depQuery = `
+    SELECT 
+      COUNT(DISTINCT a.id)::int AS appointment_count,
+      COUNT(DISTINCT p.id)::int AS staff_count
+    FROM public.branches b
+    LEFT JOIN public.appointments a ON a.branch_id = b.id
+    LEFT JOIN public.profiles p ON p.branch_id = b.id
+    WHERE b.id = $1::uuid
+    GROUP BY b.id;
+  `;
+  const depRes = await db.query(depQuery, [id]);
+  const stats = depRes.rows[0] || { appointment_count: 0, staff_count: 0 };
+
+  const apptCount = Number(stats.appointment_count || 0);
+  const staffCount = Number(stats.staff_count || 0);
+
+  // If there are existing appointments, we MUST NOT delete hard (foreign key violation + loss of medical record audit)
+  if (apptCount > 0 && !force) {
+    await db.query("UPDATE public.branches SET is_active = false WHERE id = $1::uuid", [id]);
+    return {
+      deleted: false,
+      deactivated: true,
+      message: `Branch has ${apptCount} historical appointments and was safely deactivated/archived to preserve clinical audit trails.`,
+    };
+  }
+
+  // Unlink assigned staff if any
+  if (staffCount > 0) {
+    await db.query("UPDATE public.profiles SET branch_id = NULL WHERE branch_id = $1::uuid", [id]);
+  }
+
+  // If appointments exist and force is true, we still archive to preserve schema integrity
+  if (apptCount > 0) {
+    await db.query("UPDATE public.branches SET is_active = false WHERE id = $1::uuid", [id]);
+    return {
+      deleted: false,
+      deactivated: true,
+      message: `Branch unlinked from ${staffCount} staff and deactivated. Historical appointment references preserved.`,
+    };
+  }
+
+  // 0 appointments -> Safe for permanent deletion
+  const delRes = await db.query("DELETE FROM public.branches WHERE id = $1::uuid RETURNING id", [id]);
+  if (delRes.rows.length === 0) {
+    throw new Error("Branch not found.");
+  }
+
+  return {
+    deleted: true,
+    deactivated: false,
+    message: "Branch permanently deleted.",
+  };
+}
+
+export interface DentistRecord {
+  id: string;
+  name: string;
+  title: string;
+  prc_license: string;
+  photo_url: string;
+  specialty: string;
+  education: string | null;
+  certifications: string[];
+  experience_years: number;
+  bio: string | null;
+  clinic_days: { branchName: string; days: string; hours: string }[];
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+/**
+ * Ensures public.dentists table exists and is populated with initial specialist profiles
+ */
+export async function ensureDentistsTable(): Promise<void> {
+  const db = getPool();
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS public.dentists (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      title TEXT NOT NULL,
+      prc_license TEXT NOT NULL,
+      photo_url TEXT NOT NULL,
+      specialty TEXT NOT NULL,
+      education TEXT,
+      certifications JSONB DEFAULT '[]'::jsonb,
+      experience_years INT DEFAULT 5,
+      bio TEXT,
+      clinic_days JSONB DEFAULT '[]'::jsonb,
+      display_order INT DEFAULT 0,
+      is_active BOOLEAN DEFAULT true,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    );
+  `);
+
+  const countRes = await db.query("SELECT COUNT(*)::int AS count FROM public.dentists;");
+  if (countRes.rows[0]?.count === 0) {
+    const initialDentists = [
+      {
+        id: "00000000-0000-0000-0000-000000000010",
+        name: "Dr. Kenneth Galve, DDM, FICOI",
+        title: "Lead Dental Surgeon & Cosmetic Dentistry Specialist",
+        prc_license: "0074218",
+        photo_url: "/images/dentist-dr-kenneth.jpg",
+        specialty: "Cosmetic Smile Design, Porcelain Veneers & Full Mouth Rehabilitation",
+        education: "Doctor of Dental Medicine, University of the Philippines Manila (UPM)",
+        certifications: [
+          "Fellow, International Congress of Oral Implantologists (FICOI)",
+          "Certified Digital Smile Design (DSD) Clinician",
+          "Active Member, Philippine Dental Association (PDA - CDO Chapter)",
+        ],
+        experience_years: 14,
+        bio: "A native of Northern Mindanao, Dr. Galve combines clinical rigor with artistic precision. Known for transformative porcelain veneers and complex full-arch rehabilitation, he is dedicated to delivering hospital-grade, pain-free dental care to Cagayan de Oro families.",
+        clinic_days: [
+          { branchName: "Downtown (Limketkai)", days: "Mon, Wed, Fri", hours: "9:00 AM – 5:00 PM" },
+          { branchName: "Uptown (Pueblo de Oro)", days: "Tue, Thu, Sat", hours: "9:00 AM – 6:00 PM" },
+        ],
+        display_order: 1,
+      },
+      {
+        id: "00000000-0000-0000-0000-000000000011",
+        name: "Dr. Andrea Reyes, DDM, MS (Ortho)",
+        title: "Specialist Orthodontist & Clear Aligner Provider",
+        prc_license: "0081943",
+        photo_url: "/images/dentist-dr-andrea.jpg",
+        specialty: "Clear Invisible Aligners, Self-Ligating Braces & Adolescent Orthodontics",
+        education: "Master of Science in Orthodontics, Centro Escolar University; DDM, University of the East",
+        certifications: [
+          "Certified Clear Aligner Provider",
+          "Member, Association of Philippine Orthodontists (APO)",
+          "Specialist in Low-Friction Damon Self-Ligating Systems",
+        ],
+        experience_years: 11,
+        bio: "Dr. Reyes has straightened over 1,500 smiles across Mindanao. Her philosophy centers on gentle, non-extraction orthodontic planning whenever possible, harmonizing facial aesthetics with long-term bite stability.",
+        clinic_days: [
+          { branchName: "Downtown (Limketkai)", days: "Tue, Thu, Sat", hours: "9:00 AM – 6:00 PM" },
+        ],
+        display_order: 2,
+      },
+      {
+        id: "00000000-0000-0000-0000-000000000012",
+        name: "Dr. Marcus Lim, DDM, MSc (Perio)",
+        title: "Periodontist & Oral Implantologist",
+        prc_license: "0069312",
+        photo_url: "/images/dentist-dr-marcus.jpg",
+        specialty: "Advanced Gum Disease Laser Surgery, Bone Grafting & Dental Implants",
+        education: "Residency in Periodontal Surgery, University of the Philippines - PGH; DDM, CEU",
+        certifications: [
+          "Diplomate Eligible, Philippine Society of Periodontology (PSP)",
+          "Advanced Guided Bone Regeneration (GBR) Specialist",
+          "Minimally Invasive Microsurgical Periodontist",
+        ],
+        experience_years: 16,
+        bio: "Dr. Lim is Northern Mindanao's premier specialist for severe periodontitis and missing tooth replacement. Utilizing dental lasers and 3D computer-guided implant planning, he saves natural teeth and restores chewing function with zero discomfort.",
+        clinic_days: [
+          { branchName: "Uptown (Pueblo de Oro)", days: "Mon, Wed, Fri", hours: "9:30 AM – 5:30 PM" },
+        ],
+        display_order: 3,
+      },
+      {
+        id: "00000000-0000-0000-0000-000000000013",
+        name: "Dr. Sophia Valdez, DDM",
+        title: "General Dental Practitioner & Endodontist",
+        prc_license: "0092410",
+        photo_url: "/images/dentist-dr-sophia.jpg",
+        specialty: "Rotary Root Canal Therapy, Ultrasonic Prophylaxis & Aesthetic Bonding",
+        education: "Doctor of Dental Medicine, Davao Medical School Foundation",
+        certifications: [
+          "Certified in Rotary Nickel-Titanium Endodontics",
+          "Pediatric Gentle Handling Certificate",
+          "Active Member, PDA CDO Chapter",
+        ],
+        experience_years: 8,
+        bio: "Celebrated for her remarkably gentle touch, Dr. Valdez is the favorite doctor of anxious patients and young children in CDO. She specializes in single-visit root canal therapy and preventive oral health.",
+        clinic_days: [
+          { branchName: "Downtown (Limketkai)", days: "Mon, Wed, Sat", hours: "9:00 AM – 6:00 PM" },
+          { branchName: "Uptown (Pueblo de Oro)", days: "Tue, Thu, Fri", hours: "9:00 AM – 6:00 PM" },
+        ],
+        display_order: 4,
+      },
+    ];
+
+    for (const d of initialDentists) {
+      await db.query(
+        `INSERT INTO public.dentists (
+          id, name, title, prc_license, photo_url, specialty, education,
+          certifications, experience_years, bio, clinic_days, display_order, is_active
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true)
+        ON CONFLICT (id) DO NOTHING;`,
+        [
+          d.id,
+          d.name,
+          d.title,
+          d.prc_license,
+          d.photo_url,
+          d.specialty,
+          d.education,
+          JSON.stringify(d.certifications),
+          d.experience_years,
+          d.bio,
+          JSON.stringify(d.clinic_days),
+          d.display_order,
+        ]
+      );
+    }
+  }
+}
+
+/**
+ * List all dentists
+ */
+export async function listDentists(onlyActive = false): Promise<DentistRecord[]> {
+  await ensureDentistsTable();
+  const db = getPool();
+
+  const query = `
+    SELECT 
+      id, name, title, prc_license, photo_url, specialty, education,
+      certifications, experience_years, bio, clinic_days, display_order, is_active, created_at
+    FROM public.dentists
+    ${onlyActive ? "WHERE is_active = true" : ""}
+    ORDER BY display_order ASC, name ASC;
+  `;
+
+  const { rows } = await db.query(query);
+  return rows.map((r: any) => ({
+    id: r.id,
+    name: r.name,
+    title: r.title,
+    prc_license: r.prc_license,
+    photo_url: r.photo_url,
+    specialty: r.specialty,
+    education: r.education || null,
+    certifications: Array.isArray(r.certifications) ? r.certifications : [],
+    experience_years: Number(r.experience_years || 0),
+    bio: r.bio || null,
+    clinic_days: Array.isArray(r.clinic_days) ? r.clinic_days : [],
+    display_order: Number(r.display_order || 0),
+    is_active: Boolean(r.is_active),
+    created_at: r.created_at,
+  }));
+}
+
+/**
+ * Create a new dentist profile
+ */
+export async function createDentistAdmin(data: {
+  name: string;
+  title: string;
+  prc_license: string;
+  photo_url: string;
+  specialty: string;
+  education?: string | null;
+  certifications?: string[];
+  experience_years?: number;
+  bio?: string | null;
+  clinic_days?: { branchName: string; days: string; hours: string }[];
+  display_order?: number;
+  is_active?: boolean;
+}): Promise<DentistRecord> {
+  await ensureDentistsTable();
+  const db = getPool();
+
+  const id = crypto.randomUUID();
+
+  const query = `
+    INSERT INTO public.dentists (
+      id, name, title, prc_license, photo_url, specialty, education,
+      certifications, experience_years, bio, clinic_days, display_order, is_active
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    RETURNING *;
+  `;
+
+  const { rows } = await db.query(query, [
+    id,
+    data.name.trim(),
+    data.title.trim(),
+    data.prc_license.trim(),
+    data.photo_url.trim(),
+    data.specialty.trim(),
+    data.education?.trim() || null,
+    JSON.stringify(data.certifications || []),
+    data.experience_years !== undefined ? data.experience_years : 5,
+    data.bio?.trim() || null,
+    JSON.stringify(data.clinic_days || []),
+    data.display_order !== undefined ? data.display_order : 0,
+    data.is_active !== undefined ? data.is_active : true,
+  ]);
+
+  const created = rows[0];
+  return {
+    ...created,
+    certifications: Array.isArray(created.certifications) ? created.certifications : [],
+    clinic_days: Array.isArray(created.clinic_days) ? created.clinic_days : [],
+  };
+}
+
+/**
+ * Update an existing dentist profile (name, title, photo, bio, credentials, etc.)
+ */
+export async function updateDentistAdmin(
+  id: string,
+  data: Partial<{
+    name: string;
+    title: string;
+    prc_license: string;
+    photo_url: string;
+    specialty: string;
+    education: string | null;
+    certifications: string[];
+    experience_years: number;
+    bio: string | null;
+    clinic_days: { branchName: string; days: string; hours: string }[];
+    display_order: number;
+    is_active: boolean;
+  }>
+): Promise<DentistRecord> {
+  await ensureDentistsTable();
+  const db = getPool();
+
+  const setClauses: string[] = [];
+  const values: any[] = [];
+  let paramIndex = 1;
+
+  if (data.name !== undefined) {
+    setClauses.push(`name = $${paramIndex++}`);
+    values.push(data.name.trim());
+  }
+  if (data.title !== undefined) {
+    setClauses.push(`title = $${paramIndex++}`);
+    values.push(data.title.trim());
+  }
+  if (data.prc_license !== undefined) {
+    setClauses.push(`prc_license = $${paramIndex++}`);
+    values.push(data.prc_license.trim());
+  }
+  if (data.photo_url !== undefined) {
+    setClauses.push(`photo_url = $${paramIndex++}`);
+    values.push(data.photo_url.trim());
+  }
+  if (data.specialty !== undefined) {
+    setClauses.push(`specialty = $${paramIndex++}`);
+    values.push(data.specialty.trim());
+  }
+  if (data.education !== undefined) {
+    setClauses.push(`education = $${paramIndex++}`);
+    values.push(data.education ? data.education.trim() : null);
+  }
+  if (data.certifications !== undefined) {
+    setClauses.push(`certifications = $${paramIndex++}`);
+    values.push(JSON.stringify(data.certifications));
+  }
+  if (data.experience_years !== undefined) {
+    setClauses.push(`experience_years = $${paramIndex++}`);
+    values.push(Number(data.experience_years));
+  }
+  if (data.bio !== undefined) {
+    setClauses.push(`bio = $${paramIndex++}`);
+    values.push(data.bio ? data.bio.trim() : null);
+  }
+  if (data.clinic_days !== undefined) {
+    setClauses.push(`clinic_days = $${paramIndex++}`);
+    values.push(JSON.stringify(data.clinic_days));
+  }
+  if (data.display_order !== undefined) {
+    setClauses.push(`display_order = $${paramIndex++}`);
+    values.push(Number(data.display_order));
+  }
+  if (data.is_active !== undefined) {
+    setClauses.push(`is_active = $${paramIndex++}`);
+    values.push(Boolean(data.is_active));
+  }
+
+  setClauses.push(`updated_at = now()`);
+
+  if (values.length === 0) {
+    throw new Error("No fields provided to update.");
+  }
+
+  values.push(id);
+  const query = `
+    UPDATE public.dentists
+    SET ${setClauses.join(", ")}
+    WHERE id = $${paramIndex}
+    RETURNING *;
+  `;
+
+  const { rows } = await db.query(query, values);
+  if (rows.length === 0) {
+    throw new Error("Dentist record not found.");
+  }
+
+  const updated = rows[0];
+  return {
+    ...updated,
+    certifications: Array.isArray(updated.certifications) ? updated.certifications : [],
+    clinic_days: Array.isArray(updated.clinic_days) ? updated.clinic_days : [],
+  };
+}
+
+/**
+ * Delete a dentist record
+ */
+export async function deleteDentistAdmin(id: string): Promise<void> {
+  await ensureDentistsTable();
+  const db = getPool();
+
+  const res = await db.query("DELETE FROM public.dentists WHERE id = $1 RETURNING id;", [id]);
+  if (res.rows.length === 0) {
+    throw new Error("Dentist record not found.");
+  }
+}

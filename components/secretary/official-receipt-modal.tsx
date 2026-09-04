@@ -3,6 +3,7 @@
 import React from "react";
 import { X, Printer, CheckCircle2, ShieldCheck, Download } from "lucide-react";
 import { useClinic } from "@/context/clinic-context";
+import { ModalPortal } from "@/components/ui/modal-portal";
 
 interface OfficialReceiptModalProps {
   isOpen: boolean;
@@ -60,8 +61,9 @@ export function OfficialReceiptModal({ isOpen, onClose, bill }: OfficialReceiptM
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden max-h-[90vh] flex flex-col">
+    <ModalPortal>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden max-h-[90vh] flex flex-col">
         {/* Top Control Bar */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 print:hidden">
           <div className="flex items-center gap-2">
@@ -302,5 +304,6 @@ export function OfficialReceiptModal({ isOpen, onClose, bill }: OfficialReceiptM
         </div>
       </div>
     </div>
+  </ModalPortal>
   );
 }

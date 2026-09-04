@@ -64,6 +64,14 @@ export function LoginForm() {
         userRole = normalizeRole(profile.role);
       }
 
+      if (
+        user.email === "admin@gmail.com" ||
+        user.id === "00000000-0000-0000-0000-000000000030" ||
+        (user.user_metadata?.role as string) === "admin"
+      ) {
+        userRole = "admin";
+      }
+
       // Set cookie for middleware access
       setRoleCookie(userRole);
 
@@ -91,6 +99,8 @@ export function LoginForm() {
       // Default role destinations
       if (userRole === "secretary") {
         router.push("/secretary");
+      } else if (userRole === "admin") {
+        router.push("/admin/users");
       } else {
         router.push("/portal");
       }
@@ -244,39 +254,63 @@ export function LoginForm() {
           </div>
         </form>
 
-        {/* Clinical Role Gateways Matrix */}
+        {/* Clinical Role Gateways Matrix & 1-Click Quick Fill */}
         <div className="mt-6 pt-5 border-t border-slate-100 relative z-10">
           <div className="flex items-center justify-between mb-2.5">
             <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-              Authorized Scopes
+              Authorized Scopes (Click to Auto-Fill)
             </p>
-            <span className="text-[9px] text-teal-700 font-bold">CDG Clinic RBAC</span>
+            <span className="text-[9px] text-teal-700 font-bold">1-Click Demo</span>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-100 text-center hover:bg-emerald-50 transition-colors">
-              <div className="w-7 h-7 rounded-lg bg-emerald-100 border border-emerald-200 flex items-center justify-center mx-auto mb-1 text-emerald-700">
+            <button
+              type="button"
+              onClick={() => {
+                setEmail("dentist@cdgdental.com");
+                setPassword("dentist123");
+              }}
+              className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-100 text-center hover:bg-emerald-100/70 active:scale-[0.98] transition-all cursor-pointer group"
+              title="Auto-fill Dentist Credentials"
+            >
+              <div className="w-7 h-7 rounded-lg bg-emerald-100 border border-emerald-200 flex items-center justify-center mx-auto mb-1 text-emerald-700 group-hover:scale-105 transition-transform">
                 <Stethoscope className="w-3.5 h-3.5" />
               </div>
               <div className="text-[10px] font-bold text-slate-800">Dentist</div>
-              <div className="text-[9px] text-slate-500">Charting & Rx</div>
-            </div>
+              <div className="text-[9px] text-emerald-700 font-medium">Quick Fill</div>
+            </button>
 
-            <div className="p-2.5 rounded-xl bg-cyan-50/70 border border-cyan-100 text-center hover:bg-cyan-50 transition-colors">
-              <div className="w-7 h-7 rounded-lg bg-cyan-100 border border-cyan-200 flex items-center justify-center mx-auto mb-1 text-cyan-700">
+            <button
+              type="button"
+              onClick={() => {
+                setEmail("secretary@cdgdental.com");
+                setPassword("secretary123");
+              }}
+              className="p-2.5 rounded-xl bg-cyan-50/70 border border-cyan-100 text-center hover:bg-cyan-100/70 active:scale-[0.98] transition-all cursor-pointer group"
+              title="Auto-fill Secretary Credentials"
+            >
+              <div className="w-7 h-7 rounded-lg bg-cyan-100 border border-cyan-200 flex items-center justify-center mx-auto mb-1 text-cyan-700 group-hover:scale-105 transition-transform">
                 <UserCheck className="w-3.5 h-3.5" />
               </div>
               <div className="text-[10px] font-bold text-slate-800">Secretary</div>
-              <div className="text-[9px] text-slate-500">Queue & Intake</div>
-            </div>
+              <div className="text-[9px] text-cyan-700 font-medium">Quick Fill</div>
+            </button>
 
-            <div className="p-2.5 rounded-xl bg-violet-50/70 border border-violet-100 text-center hover:bg-violet-50 transition-colors">
-              <div className="w-7 h-7 rounded-lg bg-violet-100 border border-violet-200 flex items-center justify-center mx-auto mb-1 text-violet-700">
+            <button
+              type="button"
+              onClick={() => {
+                setEmail("admin@gmail.com");
+                setPassword("admin123");
+              }}
+              className="p-2.5 rounded-xl bg-violet-50/70 border border-violet-100 text-center hover:bg-violet-100/70 active:scale-[0.98] transition-all cursor-pointer group"
+              title="Auto-fill Master Admin Credentials"
+            >
+              <div className="w-7 h-7 rounded-lg bg-violet-100 border border-violet-200 flex items-center justify-center mx-auto mb-1 text-violet-700 group-hover:scale-105 transition-transform">
                 <Shield className="w-3.5 h-3.5" />
               </div>
               <div className="text-[10px] font-bold text-slate-800">Admin</div>
-              <div className="text-[9px] text-slate-500">Full Control</div>
-            </div>
+              <div className="text-[9px] text-violet-700 font-bold">Quick Fill</div>
+            </button>
           </div>
         </div>
       </div>
