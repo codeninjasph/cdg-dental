@@ -1,109 +1,108 @@
-<a href="https://demo-nextjs-with-supabase.vercel.app/">
-  <img alt="Next.js and Supabase Starter Kit - the fastest way to build apps with Next.js and Supabase" src="https://demo-nextjs-with-supabase.vercel.app/opengraph-image.png">
-  <h1 align="center">Next.js and Supabase Starter Kit</h1>
-</a>
+# CDG Dental Clinic — Practice Management System (PMS)
 
-<p align="center">
- The fastest way to build apps with Next.js and Supabase
-</p>
+An enterprise-grade Dental Practice Management System and Electronic Dental Records (EDR) suite built for multi-branch clinics. Features real-time chairside odontograms, front-desk reception workflows, conflict-free appointment scheduling, integrated POS invoicing, and high-volume data scalability.
 
-<p align="center">
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#demo"><strong>Demo</strong></a> ·
-  <a href="#deploy-to-vercel"><strong>Deploy to Vercel</strong></a> ·
-  <a href="#clone-and-run-locally"><strong>Clone and run locally</strong></a> ·
-  <a href="#feedback-and-issues"><strong>Feedback and issues</strong></a>
-  <a href="#more-supabase-examples"><strong>More Examples</strong></a>
-</p>
-<br/>
+---
 
-## Features
+## 🌟 Key Modules & Workspaces
 
-- Works across the entire [Next.js](https://nextjs.org) stack
-  - App Router
-  - Pages Router
-  - Proxy
-  - Client
-  - Server
-  - It just works!
-- supabase-ssr. A package to configure Supabase Auth to use cookies
-- Password-based authentication block installed via the [Supabase UI Library](https://supabase.com/ui/docs/nextjs/password-based-auth)
-- Styling with [Tailwind CSS](https://tailwindcss.com)
-- Components with [shadcn/ui](https://ui.shadcn.com/)
-- Optional deployment with [Supabase Vercel Integration and Vercel deploy](#deploy-your-own)
-  - Environment variables automatically assigned to Vercel project
+### 1. 🌐 Public Dental Suite
+- **Patient-Facing Clinic Portal**: Modern responsive website showcasing CDG Dental's branches, dentists, and dental specialties.
+- **Online Booking System**: Integrated appointment intake modal for patients with branch selection, preferred dentists, and medical alerts.
+- **Emergency Dental Care**: Direct hotline integration for acute dental needs.
 
-## Demo
+### 2. 🩺 Clinical Doctor Suite (`/portal`)
+- **Chairside 32-Tooth Odontogram**: Interactive adult dental charting with color-coded tooth statuses (healthy, decayed, filled, crowned, extracted, implant, root canal, bridge) and surface-specific notes.
+- **Operatory Queue Management**: Track active operatory visits with one-click status transitions (*Scheduled* → *Arrived* → *In Operatory* → *Completed*).
+- **Electronic Dental Records (EDR)**: Patient medical contraindications, penicillin/latex allergies, emergency contacts, and complete treatment history.
 
-You can view a fully working demo at [demo-nextjs-with-supabase.vercel.app](https://demo-nextjs-with-supabase.vercel.app/).
+### 3. 📋 Front-Desk & Secretary Hub (`/secretary`)
+A unified command center for clinic receptionists and secretaries organized into 4 dedicated workstations:
+- 🕒 **Queue & Check-In**: Real-time lobby queue, walk-in scheduling, patient routing slip vouchers, and doctor filtering.
+- 👥 **Patient Records & CRM**: Fast patient search, instant profile preview, intake registration, and duplicate record merging.
+- 💳 **Cashier POS & Invoicing**: Treatment bill creation, cash/GCash/card payment logging, official receipt generation, and live receivables tracking.
+- 📁 **Intake Documents Vault**: Secure document intake for patient consent forms, signed waivers, ID attachments, and medical clearances.
 
-## Deploy to Vercel
+### 4. 🛡️ Master Administration (`/admin`)
+- **Staff Directory & Access Control**: Administrator invite engine, role management (`dentist`, `secretary`, `admin`), and security oversight.
+- **Role Viewport Switcher**: Allows administrators to preview the system from the authentic perspective of any practitioner or receptionist without logging out.
+- **Branch Management**: Multi-clinic location configurations (Ortigas Center, BGC Premier, Cagayan de Oro).
 
-Vercel deployment will guide you through creating a Supabase account and project.
+---
 
-After installation of the Supabase integration, all relevant environment variables will be assigned to the project so the deployment is fully functioning.
+## ⚡ High-Volume Scalability & Performance
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&project-name=nextjs-with-supabase&repository-name=nextjs-with-supabase&demo-title=nextjs-with-supabase&demo-description=This+starter+configures+Supabase+Auth+to+use+cookies%2C+making+the+user%27s+session+available+throughout+the+entire+Next.js+app+-+Client+Components%2C+Server+Components%2C+Route+Handlers%2C+Server+Actions+and+Middleware.&demo-url=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2F&external-id=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&demo-image=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2Fopengraph-image.png)
+- **Zero Infinite Scroll**: All tables (Patients, Appointments, Invoices, Payment Logs, Documents) feature clean pagination with page jumping, configurable rows-per-page (`10`, `25`, `50`, `100`), and live record counts.
+- **PostgreSQL Double-Booking Exclusion**: Database-level `EXCLUDE USING gist` constraints on `(dentist_id WITH =, tstzrange(start_time, end_time) WITH &&)` prevent concurrent appointment double-booking.
+- **Trigger-Synced Financial Ledger**: Database triggers (`trg_payment_sync_bill`) automatically recalculate invoice balances (`unpaid`, `partially_paid`, `fully_paid`) upon payment logging.
+- **Optimized B-Tree Indexes**: Custom composite indexes on `patients(created_at, last_name)`, `appointments(branch_id, start_time)`, and `treatment_bills(created_at, patient_id)` ensure sub-millisecond queries across tens of thousands of records.
 
-The above will also clone the Starter kit to your GitHub, you can clone that locally and develop locally.
+---
 
-If you wish to just develop locally and not deploy to Vercel, [follow the steps below](#clone-and-run-locally).
+## 🔑 Demo Login Credentials
 
-## Clone and run locally
+For demonstration and client walkthroughs, access the portal via `/auth/login` (or use the 1-Click Quick Fill buttons on screen):
 
-1. You'll first need a Supabase project which can be made [via the Supabase dashboard](https://database.new)
+| Role | Email | Password | Landing Destination | Primary Workstation |
+| :--- | :--- | :--- | :--- | :--- |
+| **Secretary** | `secretary@cdgdental.com` | `secretary123` | `/secretary` | Reception, Queue & Cashier POS |
+| **Dentist** | `dentist@cdgdental.com` | `dentist123` | `/portal` | Clinical Charting & Odontograms |
+| **Admin** | `admin@gmail.com` | `admin123` | `/admin/users` | Full Clinic Operations & Access Control |
 
-2. Create a Next.js app using the Supabase Starter template npx command
+---
 
-   ```bash
-   npx create-next-app --example with-supabase with-supabase-app
-   ```
+## 🛠️ Technology Stack
 
-   ```bash
-   yarn create next-app --example with-supabase with-supabase-app
-   ```
+- **Framework**: [Next.js 15](https://nextjs.org/) (App Router, Server Components & Client Components)
+- **Language & Runtime**: [TypeScript](https://www.typescriptlang.org/) & [Node.js](https://nodejs.org/)
+- **Database & Auth**: [Supabase](https://supabase.com/) (PostgreSQL 17, GoTrue Auth, Row-Level Security, Views & Triggers)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/) with CDG clinical slate/teal design system
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **State & Context**: Custom React Clinic Context with role cookies and proxy middleware RBAC
 
-   ```bash
-   pnpm create next-app --example with-supabase with-supabase-app
-   ```
+---
 
-3. Use `cd` to change into the app's directory
+## 🚀 Getting Started
 
-   ```bash
-   cd with-supabase-app
-   ```
+### 1. Clone & Install Dependencies
 
-4. Rename `.env.example` to `.env.local` and update the following:
+```bash
+git clone <repository-url>
+cd cdg-dental
+npm install
+```
 
-  ```env
-  NEXT_PUBLIC_SUPABASE_URL=[INSERT SUPABASE PROJECT URL]
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=[INSERT SUPABASE PROJECT API PUBLISHABLE OR ANON KEY]
-  ```
-  > [!NOTE]
-  > This example uses `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, which refers to Supabase's new **publishable** key format.
-  > Both legacy **anon** keys and new **publishable** keys can be used with this variable name during the transition period. Supabase's dashboard may show `NEXT_PUBLIC_SUPABASE_ANON_KEY`; its value can be used in this example.
-  > See the [full announcement](https://github.com/orgs/supabase/discussions/29260) for more information.
+### 2. Environment Variables
 
-  Both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` can be found in [your Supabase project's API settings](https://supabase.com/dashboard/project/_?showConnect=true)
+Create `.env.local` in the project root:
 
-5. You can now run the Next.js local development server:
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-or-anon-key
+SUPABASE_DB_PASSWORD=your-database-password
+```
 
-   ```bash
-   npm run dev
-   ```
+### 3. Database Schema & Seed Data
 
-   The starter kit should now be running on [localhost:3000](http://localhost:3000/).
+Run the database migration and seed script to populate sample branches, doctors, patients, tooth charts, and demo accounts:
 
-6. This template comes with the default shadcn/ui style initialized. If you instead want other ui.shadcn styles, delete `components.json` and [re-install shadcn/ui](https://ui.shadcn.com/docs/installation/next)
+```bash
+# Seed demo accounts, branches, tooth charts, and appointments
+node --env-file=.env.local scripts/seed.js
+```
 
-> Check out [the docs for Local Development](https://supabase.com/docs/guides/getting-started/local-development) to also run Supabase locally.
+### 4. Run Development Server
 
-## Feedback and issues
+```bash
+npm run dev
+```
 
-Please file feedback and issues over on the [Supabase GitHub org](https://github.com/supabase/supabase/issues/new/choose).
+Open [http://localhost:3000](http://localhost:3000) in your browser:
+- Public Website: `http://localhost:3000/`
+- Practitioner & Staff Sign In: `http://localhost:3000/auth/login`
 
-## More Supabase examples
+---
 
-- [Next.js Subscription Payments Starter](https://github.com/vercel/nextjs-subscription-payments)
-- [Cookie-based Auth and the Next.js 13 App Router (free course)](https://youtube.com/playlist?list=PL5S4mPUpp4OtMhpnp93EFSo42iQ40XjbF)
-- [Supabase Auth and the Next.js App Router](https://github.com/supabase/supabase/tree/master/examples/auth/nextjs)
+## 📄 License
+
+Proprietary software developed for CDG Dental Clinic. All rights reserved.

@@ -7,6 +7,7 @@ import { useClinic } from "@/context/clinic-context";
 import { Patient } from "@/types/dental";
 import { PatientRegistrationModal } from "@/components/patients/patient-registration-modal";
 import { MergePatientModal } from "@/components/patients/merge-patient-modal";
+import { Pagination } from "@/components/ui/pagination";
 import {
   Users,
   Search,
@@ -50,6 +51,9 @@ export default function PatientsDirectoryPage() {
     loadPatients();
   }, [refreshTrigger]);
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const filteredPatients = patients.filter((p) => {
     const query = searchTerm.toLowerCase();
     const matchesQuery =
@@ -63,6 +67,13 @@ export default function PatientsDirectoryPage() {
     }
     return matchesQuery;
   });
+
+  // Calculate pagination
+  const totalPages = Math.max(1, Math.ceil(filteredPatients.length / pageSize));
+  const paginatedPatients = filteredPatients.slice(
+    (page - 1) * pageSize,
+    page * pageSize
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -103,7 +114,10 @@ export default function PatientsDirectoryPage() {
           <input
             type="text"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(1);
+            }}
             placeholder="Search by name, phone, medical alert..."
             className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
           />
@@ -111,7 +125,10 @@ export default function PatientsDirectoryPage() {
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
-            onClick={() => setFilterAlertsOnly(!filterAlertsOnly)}
+            onClick={() => {
+              setFilterAlertsOnly(!filterAlertsOnly);
+              setPage(1);
+            }}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
               filterAlertsOnly
                 ? "bg-rose-50 dark:bg-rose-950/60 border-rose-400 text-rose-700 dark:text-rose-300"
@@ -152,7 +169,7 @@ export default function PatientsDirectoryPage() {
                   </td>
                 </tr>
               ) : (
-                filteredPatients.map((p) => {
+                paginatedPatients.map((p) => {
                   const age = p.dob
                     ? Math.floor(
                         (new Date().getTime() - new Date(p.dob).getTime()) /
@@ -248,6 +265,18 @@ export default function PatientsDirectoryPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination bar */}
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={filteredPatients.length}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 25, 50, 100]}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          itemName="patients"
+        />
       </div>
 
       <PatientRegistrationModal

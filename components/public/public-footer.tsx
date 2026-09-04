@@ -3,11 +3,9 @@ import {
   Sparkles,
   MapPin,
   Phone,
-  Mail,
   Clock,
   ShieldCheck,
   Building,
-  Heart,
 } from "lucide-react";
 import { CDO_BRANCHES_DATA, CDO_SERVICES_DATA } from "@/lib/cdo-clinic-data";
 
@@ -161,14 +159,6 @@ export function PublicFooter() {
               <Phone className="w-3.5 h-3.5" />
               Call CDO Hotline: (088) 850-1234
             </a>
-            <div className="mt-4">
-              <Link
-                href="/portal"
-                className="text-[11px] text-slate-400 hover:text-slate-300 underline"
-              >
-                Staff Clinical Portal Login
-              </Link>
-            </div>
           </div>
         </div>
 

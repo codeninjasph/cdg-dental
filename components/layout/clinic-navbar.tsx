@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useClinic } from "@/context/clinic-context";
 import {
   Calendar,
@@ -17,6 +17,8 @@ import {
   Globe,
   Sparkles,
   LogOut,
+  Clock,
+  FileText,
 } from "lucide-react";
 import { UserRole } from "@/types/dental";
 import { createClient } from "@/lib/supabase/client";
@@ -24,6 +26,9 @@ import { clearRoleCookie } from "@/lib/supabase/get-user-role";
 
 export function ClinicNavbar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get("tab") || "queue";
+
   const {
     branches,
     activeBranch,
@@ -53,20 +58,48 @@ export function ClinicNavbar() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const allNavLinks = [
-    { href: "/portal", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/secretary", label: "Secretary", icon: UserCheck, roles: ["secretary", "admin"] },
-    { href: "/appointments", label: "Appointments", icon: Calendar, roles: ["dentist", "admin"] },
-    { href: "/patients", label: "Patients", icon: Users, roles: ["dentist", "admin"] },
-    { href: "/billing", label: "Billing & POS", icon: CreditCard, roles: ["dentist", "admin"] },
-    { href: "/admin/users", label: "Staff & Access", icon: Shield, roles: ["admin"] },
+  // Dedicated Secretary Workstation Links (Option A: Direct module access)
+  const secretaryNavLinks = [
+    { href: "/secretary?tab=queue", tab: "queue", label: "Queue & Check-In", icon: Clock },
+    { href: "/secretary?tab=patients", tab: "patients", label: "Patient Records", icon: Users },
+    { href: "/secretary?tab=billing", tab: "billing", label: "Billing & POS", icon: CreditCard },
+    { href: "/secretary?tab=documents", tab: "documents", label: "Documents", icon: FileText },
   ];
 
-  const navLinks = allNavLinks.filter((link) => {
-    if (isAdmin) return true;
-    if (!link.roles) return true;
-    return link.roles.includes(currentRole);
-  });
+  // Clinical Doctor Links
+  const dentistNavLinks = [
+    { href: "/portal", label: "Doctor Dashboard", icon: LayoutDashboard },
+    { href: "/appointments", label: "Appointments", icon: Calendar },
+    { href: "/patients", label: "Patients", icon: Users },
+    { href: "/billing", label: "Billing & POS", icon: CreditCard },
+  ];
+
+  // System Administrator Master Links
+  const adminNavLinks = [
+    { href: "/portal", label: "Doctor Portal", icon: LayoutDashboard },
+    { href: "/secretary", label: "Secretary Desk", icon: UserCheck },
+    { href: "/appointments", label: "Appointments", icon: Calendar },
+    { href: "/patients", label: "Patients", icon: Users },
+    { href: "/billing", label: "Billing & POS", icon: CreditCard },
+    { href: "/admin/users", label: "Staff & Access", icon: Shield },
+  ];
+
+  const navLinks =
+    currentRole === "secretary"
+      ? secretaryNavLinks
+      : currentRole === "dentist"
+      ? dentistNavLinks
+      : adminNavLinks;
+
+  const isLinkActive = (link: { href: string; tab?: string }) => {
+    if (currentRole === "secretary" && link.tab) {
+      return pathname === "/secretary" && currentTab === link.tab;
+    }
+    return (
+      pathname === link.href ||
+      (link.href !== "/portal" && link.href !== "/secretary" && pathname?.startsWith(link.href))
+    );
+  };
 
   const roleConfig: Record<
     UserRole,
@@ -111,7 +144,7 @@ export function ClinicNavbar() {
 
             {/* ── Logo ── */}
             <Link
-              href="/portal"
+              href={currentRole === "secretary" ? "/secretary" : "/portal"}
               className="flex items-center gap-3 group shrink-0"
             >
               {/* Glowing tooth icon */}
@@ -146,9 +179,7 @@ export function ClinicNavbar() {
             <nav className="hidden md:flex items-center gap-0.5 bg-white/[0.04] border border-white/[0.07] rounded-2xl p-1 backdrop-blur-sm">
               {navLinks.map((link) => {
                 const Icon = link.icon;
-                const isActive =
-                  pathname === link.href ||
-                  (link.href !== "/" && pathname?.startsWith(link.href));
+                const isActive = isLinkActive(link);
                 return (
                   <Link
                     key={link.href}
@@ -415,9 +446,7 @@ export function ClinicNavbar() {
         <div className="flex md:hidden items-center gap-1 px-4 pb-2.5 overflow-x-auto scrollbar-hide">
           {navLinks.map((link) => {
             const Icon = link.icon;
-            const isActive =
-              pathname === link.href ||
-              (link.href !== "/" && pathname?.startsWith(link.href));
+            const isActive = isLinkActive(link);
             return (
               <Link
                 key={link.href}

@@ -9,6 +9,7 @@ import { AppointmentModal } from "@/components/appointments/appointment-modal";
 import { PatientRegistrationModal } from "@/components/patients/patient-registration-modal";
 import { PaymentModal } from "@/components/billing/payment-modal";
 import { InviteStaffModal } from "@/components/admin/invite-staff-modal";
+import { Pagination } from "@/components/ui/pagination";
 import {
   Calendar,
   Users,
@@ -38,6 +39,21 @@ export default function DashboardPage() {
   const [recentTreatments, setRecentTreatments] = useState<any[]>([]);
   const [patientCount, setPatientCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Widget Pagination States
+  const [apptsPage, setApptsPage] = useState(1);
+  const apptsPageSize = 5;
+  const paginatedAppts = appointments.slice(
+    (apptsPage - 1) * apptsPageSize,
+    apptsPage * apptsPageSize
+  );
+
+  const [balancesPage, setBalancesPage] = useState(1);
+  const balancesPageSize = 5;
+  const paginatedBalances = balances.slice(
+    (balancesPage - 1) * balancesPageSize,
+    balancesPage * balancesPageSize
+  );
 
   // Modals state
   const [isApptModalOpen, setIsApptModalOpen] = useState(false);
@@ -177,13 +193,15 @@ export default function DashboardPage() {
               </button>
             </>
           )}
-          <Link
-            href="/secretary"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs shadow-md shadow-teal-500/25 hover:shadow-lg transition-all cursor-pointer"
-          >
-            <UserCheck className="w-4 h-4" />
-            <span>Secretary Desk</span>
-          </Link>
+          {isAdmin && (
+            <Link
+              href="/secretary"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs shadow-md shadow-teal-500/25 hover:shadow-lg transition-all cursor-pointer"
+            >
+              <UserCheck className="w-4 h-4" />
+              <span>Secretary Desk</span>
+            </Link>
+          )}
           <button
             onClick={() => setIsApptModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 backdrop-blur-sm transition-all cursor-pointer"
@@ -323,7 +341,7 @@ export default function DashboardPage() {
                 No appointments booked for this schedule yet. Click "Book Appointment" above.
               </div>
             ) : (
-              appointments.map((appt) => {
+              paginatedAppts.map((appt) => {
                 const startTimeStr = new Date(appt.start_time).toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
@@ -438,6 +456,17 @@ export default function DashboardPage() {
                 );
               })
             )}
+
+            {/* Compact Pagination for Appointments Queue */}
+            <Pagination
+              currentPage={apptsPage}
+              totalPages={Math.max(1, Math.ceil(appointments.length / apptsPageSize))}
+              totalItems={appointments.length}
+              pageSize={apptsPageSize}
+              onPageChange={setApptsPage}
+              itemName="visits"
+              compact={true}
+            />
           </div>
         </div>
 
@@ -466,7 +495,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {balances.map((b) => (
+                {paginatedBalances.map((b) => (
                   <div
                     key={b.bill_id}
                     className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 flex items-center justify-between gap-2"
@@ -509,6 +538,17 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ))}
+
+                {/* Compact Pagination for Balances Widget */}
+                <Pagination
+                  currentPage={balancesPage}
+                  totalPages={Math.max(1, Math.ceil(balances.length / balancesPageSize))}
+                  totalItems={balances.length}
+                  pageSize={balancesPageSize}
+                  onPageChange={setBalancesPage}
+                  itemName="accounts"
+                  compact={true}
+                />
               </div>
             )}
           </div>

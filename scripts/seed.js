@@ -37,9 +37,9 @@ async function seed() {
     await client.query(`DELETE FROM auth.users WHERE email IN ('dentist@cdgdental.com', 'secretary@cdgdental.com', 'admin@cdgdental.com');`);
 
     const users = [
-      { id: dentistId, email: 'dentist@cdgdental.com', role: 'dentist', name: 'Dr. Kenneth Galve, DDM' },
-      { id: secretaryId, email: 'secretary@cdgdental.com', role: 'secretary', name: 'Maria Santos' },
-      { id: adminId, email: 'admin@cdgdental.com', role: 'admin', name: 'CDG Clinic Administrator' },
+      { id: dentistId, email: 'dentist@cdgdental.com', password: 'dentist123', role: 'dentist', name: 'Dr. Kenneth Galve, DDM' },
+      { id: secretaryId, email: 'secretary@cdgdental.com', password: 'secretary123', role: 'secretary', name: 'Maria Santos' },
+      { id: adminId, email: 'admin@cdgdental.com', password: 'admin123', role: 'admin', name: 'CDG Clinic Administrator' },
     ];
 
     for (const u of users) {
@@ -54,10 +54,27 @@ async function seed() {
           'authenticated',
           'authenticated',
           '${u.email}',
-          crypt('password123', gen_salt('bf')),
+          crypt('${u.password}', gen_salt('bf', 10)),
           NOW(),
           '{"provider":"email","providers":["email"]}',
           '{"full_name":"${u.name}","role":"${u.role}"}',
+          NOW(),
+          NOW()
+        );
+      `);
+
+      await client.query(`
+        DELETE FROM auth.identities WHERE user_id = '${u.id}' OR provider_id = '${u.id}';
+        INSERT INTO auth.identities (
+          id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
+        )
+        VALUES (
+          gen_random_uuid(),
+          '${u.id}',
+          jsonb_build_object('sub', '${u.id}', 'role', '${u.role}', 'email', '${u.email}', 'full_name', '${u.name}'),
+          'email',
+          '${u.id}',
+          NOW(),
           NOW(),
           NOW()
         );

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useClinic } from "@/context/clinic-context";
 import { OutstandingBalance, TreatmentBill, PaymentLog } from "@/types/dental";
 import { PaymentModal } from "@/components/billing/payment-modal";
+import { Pagination } from "@/components/ui/pagination";
 import {
   CreditCard,
   QrCode,
@@ -96,10 +97,25 @@ export default function BillingPage() {
     .filter((p) => p.payment_method === "card")
     .reduce((sum, p) => sum + Number(p.amount_logged), 0);
 
+  const [billsPage, setBillsPage] = useState(1);
+  const [billsPageSize, setBillsPageSize] = useState(10);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const paymentsPageSize = 5;
+
   const filteredBills = bills.filter((b) => {
     if (statusFilter !== "all" && b.status !== statusFilter) return false;
     return true;
   });
+
+  const paginatedBills = filteredBills.slice(
+    (billsPage - 1) * billsPageSize,
+    billsPage * billsPageSize
+  );
+
+  const paginatedPayments = paymentLogs.slice(
+    (paymentsPage - 1) * paymentsPageSize,
+    paymentsPage * paymentsPageSize
+  );
 
   const billStatusColors: Record<string, string> = {
     unpaid: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200 border-rose-200",
@@ -239,8 +255,11 @@ export default function BillingPage() {
               <span className="text-slate-500 font-semibold">Filter:</span>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-medium text-slate-800 dark:text-slate-200"
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setBillsPage(1);
+                }}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-medium text-slate-800 dark:text-slate-200"
               >
                 <option value="all">All Statuses ({bills.length})</option>
                 <option value="unpaid">Unpaid</option>
@@ -272,7 +291,7 @@ export default function BillingPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredBills.map((b) => {
+                    paginatedBills.map((b) => {
                       const totalPaidOnBill = b.payments
                         ? b.payments.reduce((sum: number, p: any) => sum + Number(p.amount_logged), 0)
                         : 0;
@@ -340,6 +359,18 @@ export default function BillingPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Invoices Pagination */}
+            <Pagination
+              currentPage={billsPage}
+              totalPages={Math.max(1, Math.ceil(filteredBills.length / billsPageSize))}
+              totalItems={filteredBills.length}
+              pageSize={billsPageSize}
+              pageSizeOptions={[10, 25, 50]}
+              onPageChange={setBillsPage}
+              onPageSizeChange={setBillsPageSize}
+              itemName="invoices"
+            />
           </div>
         </div>
 
@@ -354,7 +385,7 @@ export default function BillingPage() {
             {paymentLogs.length === 0 ? (
               <div className="p-6 text-center text-xs text-slate-500">No payment logs recorded yet.</div>
             ) : (
-              paymentLogs.map((p) => {
+              paginatedPayments.map((p) => {
                 const methodBadge =
                   p.payment_method === "gcash"
                     ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
@@ -394,6 +425,17 @@ export default function BillingPage() {
                 );
               })
             )}
+
+            {/* Payments Compact Pagination */}
+            <Pagination
+              currentPage={paymentsPage}
+              totalPages={Math.max(1, Math.ceil(paymentLogs.length / paymentsPageSize))}
+              totalItems={paymentLogs.length}
+              pageSize={paymentsPageSize}
+              onPageChange={setPaymentsPage}
+              itemName="payments"
+              compact={true}
+            />
           </div>
         </div>
       </div>

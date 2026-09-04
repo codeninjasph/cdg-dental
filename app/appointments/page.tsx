@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useClinic } from "@/context/clinic-context";
 import { Appointment } from "@/types/dental";
 import { AppointmentModal } from "@/components/appointments/appointment-modal";
+import { Pagination } from "@/components/ui/pagination";
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -26,6 +27,8 @@ export default function AppointmentsPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const supabase = createClient();
   const dentists = staffList.filter((s) => s.role === "dentist" || s.role === "admin");
@@ -74,6 +77,12 @@ export default function AppointmentsPage() {
     return true;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginatedAppointments = filtered.slice(
+    (page - 1) * pageSize,
+    page * pageSize
+  );
+
   const statusColors: Record<string, string> = {
     scheduled: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-200",
     confirmed: "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border-teal-200",
@@ -114,7 +123,10 @@ export default function AppointmentsPage() {
             <span className="font-semibold text-slate-500">Status:</span>
             <select
               value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
+              onChange={(e) => {
+                setSelectedStatus(e.target.value);
+                setPage(1);
+              }}
               className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-medium text-slate-800 dark:text-slate-200"
             >
               <option value="all">All Statuses ({appointments.length})</option>
@@ -132,7 +144,10 @@ export default function AppointmentsPage() {
             <span className="font-semibold text-slate-500">Dentist:</span>
             <select
               value={selectedDentist}
-              onChange={(e) => setSelectedDentist(e.target.value)}
+              onChange={(e) => {
+                setSelectedDentist(e.target.value);
+                setPage(1);
+              }}
               className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-medium text-slate-800 dark:text-slate-200"
             >
               <option value="all">All Attending Doctors</option>
@@ -159,7 +174,7 @@ export default function AppointmentsPage() {
             No appointments found for the selected filters.
           </div>
         ) : (
-          filtered.map((appt) => {
+          paginatedAppointments.map((appt) => {
             const startDate = new Date(appt.start_time);
             const endDate = new Date(appt.end_time);
 
@@ -275,6 +290,18 @@ export default function AppointmentsPage() {
             );
           })
         )}
+
+        {/* Pagination Bar */}
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 20, 50]}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          itemName="appointments"
+        />
       </div>
 
       <AppointmentModal

@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { usePathname } from "next/navigation";
 import { ClinicNavbar } from "./clinic-navbar";
 import { PublicNavbar } from "@/components/public/public-navbar";
@@ -26,7 +27,9 @@ export function AppLayoutShell({ children }: { children: React.ReactNode }) {
   if (isPortalRoute) {
     return (
       <div className="min-h-screen flex flex-col bg-slate-50/50 dark:bg-slate-950">
-        <ClinicNavbar />
+        <Suspense fallback={<div className="h-[60px] bg-slate-950/95" />}>
+          <ClinicNavbar />
+        </Suspense>
         <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {children}
         </main>

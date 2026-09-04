@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useClinic } from "@/context/clinic-context";
 import {
@@ -19,6 +20,7 @@ import { OfficialReceiptModal } from "@/components/secretary/official-receipt-mo
 import { PatientPreviewModal } from "@/components/secretary/patient-preview-modal";
 import { DocumentIntakeModal } from "@/components/secretary/document-intake-modal";
 import { MergePatientModal } from "@/components/patients/merge-patient-modal";
+import { Pagination } from "@/components/ui/pagination";
 
 import {
   Calendar,
@@ -49,7 +51,7 @@ import {
   Merge,
 } from "lucide-react";
 
-export default function SecretaryPortalPage() {
+function SecretaryPortalContent() {
   const {
     currentRole,
     currentStaff,
@@ -60,10 +62,33 @@ export default function SecretaryPortalPage() {
     staffList,
   } = useClinic();
 
-  // Active Tab
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+
+  // Active Tab synchronized with URL search params
   const [activeTab, setActiveTab] = useState<
     "queue" | "patients" | "billing" | "documents"
-  >("queue");
+  >(() => {
+    if (tabParam && ["queue", "patients", "billing", "documents"].includes(tabParam)) {
+      return tabParam as "queue" | "patients" | "billing" | "documents";
+    }
+    return "queue";
+  });
+
+  useEffect(() => {
+    if (tabParam && ["queue", "patients", "billing", "documents"].includes(tabParam)) {
+      setActiveTab(tabParam as "queue" | "patients" | "billing" | "documents");
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (tab: "queue" | "patients" | "billing" | "documents") => {
+    setActiveTab(tab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", tab);
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
   // Merge modal state
   const [isMergeOpen, setIsMergeOpen] = useState(false);
@@ -262,6 +287,38 @@ export default function SecretaryPortalPage() {
     const alert = (p.medical_alerts || "").toLowerCase();
     return fullName.includes(q) || phone.includes(q) || alert.includes(q);
   });
+
+  // Workstation 1 (Queue) Pagination
+  const [queuePage, setQueuePage] = useState(1);
+  const queuePageSize = 10;
+  const paginatedQueue = queueAppointments.slice(
+    (queuePage - 1) * queuePageSize,
+    queuePage * queuePageSize
+  );
+
+  // Workstation 2 (Patients) Pagination
+  const [patientsPage, setPatientsPage] = useState(1);
+  const [patientsPageSize, setPatientsPageSize] = useState(10);
+  const paginatedPatients = filteredPatients.slice(
+    (patientsPage - 1) * patientsPageSize,
+    patientsPage * patientsPageSize
+  );
+
+  // Workstation 3 (Invoices / Bills) Pagination
+  const [billsPage, setBillsPage] = useState(1);
+  const billsPageSize = 10;
+  const paginatedBills = bills.slice(
+    (billsPage - 1) * billsPageSize,
+    billsPage * billsPageSize
+  );
+
+  // Workstation 4 (Documents) Pagination
+  const [docsPage, setDocsPage] = useState(1);
+  const docsPageSize = 10;
+  const paginatedDocs = documents.slice(
+    (docsPage - 1) * docsPageSize,
+    docsPage * docsPageSize
+  );
 
   const statusStyles: Record<string, string> = {
     scheduled:
@@ -476,7 +533,7 @@ export default function SecretaryPortalPage() {
 
       <div className="border-b border-slate-200 dark:border-slate-800 flex items-center gap-1 sm:gap-4 overflow-x-auto">
         <button
-          onClick={() => setActiveTab("queue")}
+          onClick={() => handleTabChange("queue")}
           className={`pb-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
             activeTab === "queue"
               ? "border-teal-500 text-teal-600 dark:text-teal-400"
@@ -491,7 +548,7 @@ export default function SecretaryPortalPage() {
         </button>
 
         <button
-          onClick={() => setActiveTab("patients")}
+          onClick={() => handleTabChange("patients")}
           className={`pb-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
             activeTab === "patients"
               ? "border-teal-500 text-teal-600 dark:text-teal-400"
@@ -506,7 +563,7 @@ export default function SecretaryPortalPage() {
         </button>
 
         <button
-          onClick={() => setActiveTab("billing")}
+          onClick={() => handleTabChange("billing")}
           className={`pb-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
             activeTab === "billing"
               ? "border-teal-500 text-teal-600 dark:text-teal-400"
@@ -523,7 +580,7 @@ export default function SecretaryPortalPage() {
         </button>
 
         <button
-          onClick={() => setActiveTab("documents")}
+          onClick={() => handleTabChange("documents")}
           className={`pb-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
             activeTab === "documents"
               ? "border-teal-500 text-teal-600 dark:text-teal-400"
@@ -554,7 +611,10 @@ export default function SecretaryPortalPage() {
                 <input
                   type="date"
                   value={queueDate}
-                  onChange={(e) => setQueueDate(e.target.value)}
+                  onChange={(e) => {
+                    setQueueDate(e.target.value);
+                    setQueuePage(1);
+                  }}
                   className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
                 />
               </div>
@@ -565,7 +625,10 @@ export default function SecretaryPortalPage() {
                 </span>
                 <select
                   value={dentistFilter}
-                  onChange={(e) => setDentistFilter(e.target.value)}
+                  onChange={(e) => {
+                    setDentistFilter(e.target.value);
+                    setQueuePage(1);
+                  }}
                   className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
                 >
                   <option value="all">All Dentists</option>
@@ -600,7 +663,7 @@ export default function SecretaryPortalPage() {
                 No appointments for this date. Click "Book Walk-In" to schedule.
               </div>
             ) : (
-              queueAppointments.map((appt) => {
+              paginatedQueue.map((appt) => {
                 const startTimeStr = new Date(
                   appt.start_time
                 ).toLocaleTimeString([], {
@@ -766,6 +829,16 @@ export default function SecretaryPortalPage() {
                 );
               })
             )}
+
+            {/* Queue Pagination */}
+            <Pagination
+              currentPage={queuePage}
+              totalPages={Math.max(1, Math.ceil(queueAppointments.length / queuePageSize))}
+              totalItems={queueAppointments.length}
+              pageSize={queuePageSize}
+              onPageChange={setQueuePage}
+              itemName="visits"
+            />
           </div>
         </div>
       )}
@@ -815,7 +888,10 @@ export default function SecretaryPortalPage() {
               <input
                 type="text"
                 value={patientSearch}
-                onChange={(e) => setPatientSearch(e.target.value)}
+                onChange={(e) => {
+                  setPatientSearch(e.target.value);
+                  setPatientsPage(1);
+                }}
                 placeholder="Search by name, phone, medical alert..."
                 className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
               />
@@ -836,7 +912,7 @@ export default function SecretaryPortalPage() {
             </div>
           ) : (
             <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs divide-y divide-slate-100 dark:divide-slate-800/80 overflow-hidden">
-              {filteredPatients.map((p) => (
+              {paginatedPatients.map((p) => (
                 <div
                   key={p.id}
                   className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-850/30 transition-colors"
@@ -919,6 +995,18 @@ export default function SecretaryPortalPage() {
                   </div>
                 </div>
               ))}
+
+              {/* Patients Pagination */}
+              <Pagination
+                currentPage={patientsPage}
+                totalPages={Math.max(1, Math.ceil(filteredPatients.length / patientsPageSize))}
+                totalItems={filteredPatients.length}
+                pageSize={patientsPageSize}
+                pageSizeOptions={[10, 25, 50]}
+                onPageChange={setPatientsPage}
+                onPageSizeChange={setPatientsPageSize}
+                itemName="patients"
+              />
             </div>
           )}
         </div>
@@ -1041,7 +1129,7 @@ export default function SecretaryPortalPage() {
               </div>
             ) : (
               <div className="space-y-2.5">
-                {bills.map((bill) => {
+                {paginatedBills.map((bill) => {
                   const paidTotal = (bill.payments || []).reduce(
                     (sum: number, p: any) =>
                       sum + Number(p.amount_logged || 0),
@@ -1116,6 +1204,16 @@ export default function SecretaryPortalPage() {
                     </div>
                   );
                 })}
+
+                {/* Invoices Pagination */}
+                <Pagination
+                  currentPage={billsPage}
+                  totalPages={Math.max(1, Math.ceil(bills.length / billsPageSize))}
+                  totalItems={bills.length}
+                  pageSize={billsPageSize}
+                  onPageChange={setBillsPage}
+                  itemName="invoices"
+                />
               </div>
             )}
           </div>
@@ -1157,7 +1255,7 @@ export default function SecretaryPortalPage() {
                 consent forms.
               </div>
             ) : (
-              documents.map((doc) => (
+              paginatedDocs.map((doc) => (
                 <div
                   key={doc.id}
                   className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-850/30 transition-colors"
@@ -1203,6 +1301,16 @@ export default function SecretaryPortalPage() {
                 </div>
               ))
             )}
+
+            {/* Documents Pagination */}
+            <Pagination
+              currentPage={docsPage}
+              totalPages={Math.max(1, Math.ceil(documents.length / docsPageSize))}
+              totalItems={documents.length}
+              pageSize={docsPageSize}
+              onPageChange={setDocsPage}
+              itemName="documents"
+            />
           </div>
         </div>
       )}
@@ -1278,5 +1386,13 @@ export default function SecretaryPortalPage() {
         preselectedDupId={mergePreselectedDupId}
       />
     </div>
+  );
+}
+
+export default function SecretaryPortalPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-sm text-slate-400">Loading Front-Desk Hub...</div>}>
+      <SecretaryPortalContent />
+    </Suspense>
   );
 }

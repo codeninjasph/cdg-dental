@@ -117,7 +117,14 @@ export async function updateSession(request: NextRequest) {
     }
 
     // Role-Based Access Control (RBAC) Rules for Non-Admins:
-    // Rule A: /secretary is BLOCKED for dentists (secretary + admin allowed)
+    // Rule A: /portal REDIRECTS to /secretary for secretary
+    if (pathname.startsWith("/portal") && userRole === "secretary") {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/secretary";
+      return makeRedirect(redirectUrl);
+    }
+
+    // Rule B: /secretary is BLOCKED for dentists (secretary + admin allowed)
     if (pathname.startsWith("/secretary")) {
       if (userRole === "dentist") {
         const unauthUrl = request.nextUrl.clone();

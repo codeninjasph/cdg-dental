@@ -87,7 +87,7 @@ export function LoginForm() {
           router.push("/portal");
           return;
         }
-        if (isClinicalTarget && userRole === "secretary") {
+        if ((isClinicalTarget || redirectTarget.startsWith("/portal")) && userRole === "secretary") {
           router.push("/secretary");
           return;
         }

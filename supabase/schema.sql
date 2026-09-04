@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS patients (
 
 CREATE INDEX IF NOT EXISTS idx_patients_name ON patients(last_name, first_name);
 CREATE INDEX IF NOT EXISTS idx_patients_phone ON patients(phone);
+CREATE INDEX IF NOT EXISTS idx_patients_created ON patients(created_at DESC);
 
 -- 6. APPOINTMENTS (Conflict-Resolution with Double-Booking Exclusion)
 CREATE TABLE IF NOT EXISTS appointments (
@@ -99,6 +100,7 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS idx_appointments_start ON appointments(start_time);
 CREATE INDEX IF NOT EXISTS idx_appointments_dentist ON appointments(dentist_id, start_time);
+CREATE INDEX IF NOT EXISTS idx_appointments_branch_start ON appointments(branch_id, start_time DESC);
 
 -- 7. PATIENT TOOTH CHART (32 Teeth Adult Universal Odontogram)
 CREATE TABLE IF NOT EXISTS patient_tooth_chart (
@@ -158,6 +160,9 @@ CREATE TABLE IF NOT EXISTS treatment_bills (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_bills_created ON treatment_bills(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bills_patient ON treatment_bills(patient_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS payment_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     bill_id UUID NOT NULL REFERENCES treatment_bills(id) ON DELETE CASCADE,
@@ -170,6 +175,7 @@ CREATE TABLE IF NOT EXISTS payment_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_payments_bill ON payment_logs(bill_id);
+CREATE INDEX IF NOT EXISTS idx_payments_logged ON payment_logs(logged_at DESC);
 
 -- 11. REAL-TIME OUTSTANDING BALANCES VIEW
 CREATE OR REPLACE VIEW outstanding_balances AS
