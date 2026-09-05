@@ -86,6 +86,7 @@ export default function ReportsPage() {
           *,
           branch:branches(id, name),
           patient:patients(id, first_name, last_name, phone),
+          dentist:profiles!treatment_bills_dentist_id_fkey(id, full_name, role),
           appointment:appointments(
             id,
             start_time,
@@ -317,7 +318,7 @@ export default function ReportsPage() {
     const docs: Record<string, { id: string; name: string; billed: number; collected: number; count: number }> = {};
 
     filteredBills.forEach((b) => {
-      const doc = b.appointment?.dentist;
+      const doc = b.dentist || b.appointment?.dentist;
       const docId = doc?.id || "unassigned";
       const docName = doc?.full_name || "Unassigned Doctor";
 

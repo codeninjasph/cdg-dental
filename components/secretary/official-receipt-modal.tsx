@@ -24,6 +24,9 @@ interface OfficialReceiptModalProps {
         full_name: string;
       };
     };
+    dentist?: {
+      full_name: string;
+    };
     total_amount: number;
     discount_amount: number;
     net_amount: number;
@@ -161,7 +164,7 @@ export function OfficialReceiptModal({ isOpen, onClose, bill }: OfficialReceiptM
                   Date: {new Date(bill.created_at).toLocaleDateString()}
                 </p>
                 <p className="text-slate-500">
-                  Attending: {bill.appointment?.dentist?.full_name || "Doctor on Duty"}
+                  Attending: {bill.dentist?.full_name || bill.appointment?.dentist?.full_name || "Doctor on Duty"}
                 </p>
               </div>
             </div>

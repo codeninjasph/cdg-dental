@@ -88,6 +88,8 @@ export interface Treatment {
   procedure_name: string;
   clinical_notes?: string | null;
   cost: number;
+  bill_id?: string | null;
+  billing_status?: "pending" | "billed" | "waived";
   created_at: string;
   dentist?: Profile;
 }
@@ -120,6 +122,7 @@ export interface TreatmentBill {
   patient_id: string;
   branch_id?: string | null;
   appointment_id?: string | null;
+  dentist_id?: string | null;
   total_amount: number;
   discount_amount: number;
   net_amount: number;
@@ -135,6 +138,8 @@ export interface TreatmentBill {
   preferred_schedule?: InstallmentPreferredSchedule | null;
   created_at: string;
   patient?: Patient;
+  dentist?: Profile;
+  treatments?: Treatment[];
   payments?: PaymentLog[];
 }
 

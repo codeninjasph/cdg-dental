@@ -103,12 +103,19 @@ export function CreateBillModal({
   preselectedPatientId,
   preselectedAppointmentId,
 }: CreateBillModalProps) {
-  const { showToast, activeBranch, currentStaff } = useClinic();
+  const { showToast, activeBranch, currentStaff, staffList } = useClinic();
+  const dentists = staffList.filter((s) => s.role === "dentist" || s.role === "admin");
+
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientId, setPatientId] = useState(preselectedPatientId || "");
+  const [dentistId, setDentistId] = useState<string>("");
   const [appointmentId, setAppointmentId] = useState(preselectedAppointmentId || "");
   const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
   
+  // Pending Unbilled Treatments from Operatory
+  const [pendingTreatments, setPendingTreatments] = useState<any[]>([]);
+  const [selectedTreatmentIds, setSelectedTreatmentIds] = useState<string[]>([]);
+
   // Standard vs Installment Mode
   const [isInstallment, setIsInstallment] = useState(false);
   const [planType, setPlanType] = useState<InstallmentPlanType>("orthodontics");
@@ -164,7 +171,7 @@ export function CreateBillModal({
         .from("appointments")
         .select(`
           id, start_time, end_time, status, notes,
-          dentist:profiles(full_name)
+          dentist:profiles(id, full_name)
         `)
         .eq("patient_id", patientId)
         .order("start_time", { ascending: false });
@@ -173,6 +180,10 @@ export function CreateBillModal({
         setPatientAppointments(data as any[]);
         if (preselectedAppointmentId) {
           setAppointmentId(preselectedAppointmentId);
+          const matchedAppt = data.find((a: any) => a.id === preselectedAppointmentId);
+          if (matchedAppt && (matchedAppt as any).dentist?.id) {
+            setDentistId((matchedAppt as any).dentist.id);
+          }
         }
       }
     }
@@ -180,6 +191,47 @@ export function CreateBillModal({
       loadPatientAppts();
     }
   }, [patientId, preselectedAppointmentId]);
+
+  // Load pending unbilled treatments for this patient
+  useEffect(() => {
+    async function loadPendingTreatments() {
+      if (!patientId) {
+        setPendingTreatments([]);
+        setSelectedTreatmentIds([]);
+        return;
+      }
+      const { data } = await supabase
+        .from("treatments")
+        .select("*, dentist:profiles(id, full_name)")
+        .eq("patient_id", patientId)
+        .eq("billing_status", "pending")
+        .order("created_at", { ascending: true });
+
+      if (data && data.length > 0) {
+        setPendingTreatments(data);
+        const ids = data.map((t: any) => t.id);
+        setSelectedTreatmentIds(ids);
+
+        if (!isInstallment) {
+          const sum = data.reduce((acc: number, t: any) => acc + Number(t.cost || 0), 0);
+          setTotalAmount(String(sum));
+          const summary = data
+            .map((t: any) => `${t.procedure_name}${t.tooth_number ? ` (Tooth #${t.tooth_number})` : ""}`)
+            .join(", ");
+          setNotes(summary);
+        }
+        if (data[0]?.dentist_id) {
+          setDentistId(data[0].dentist_id);
+        }
+      } else {
+        setPendingTreatments([]);
+        setSelectedTreatmentIds([]);
+      }
+    }
+    if (isOpen && patientId) {
+      loadPendingTreatments();
+    }
+  }, [isOpen, patientId, isInstallment]);
 
   // Apply preset values when selecting plan type
   const handleApplyPreset = (type: InstallmentPlanType) => {
@@ -192,6 +244,31 @@ export function CreateBillModal({
     setTotalInstallments(preset.defaultInstallments);
     setFrequency(preset.frequency);
     setNotes(`${preset.name} treatment package`);
+  };
+
+  const handleToggleTreatment = (tId: string) => {
+    setSelectedTreatmentIds((prev) => {
+      const next = prev.includes(tId) ? prev.filter((id) => id !== tId) : [...prev, tId];
+      if (!isInstallment) {
+        const sum = pendingTreatments
+          .filter((t) => next.includes(t.id))
+          .reduce((acc, t) => acc + Number(t.cost || 0), 0);
+        setTotalAmount(String(sum));
+        const summary = pendingTreatments
+          .filter((t) => next.includes(t.id))
+          .map((t: any) => `${t.procedure_name}${t.tooth_number ? ` (Tooth #${t.tooth_number})` : ""}`)
+          .join(", ");
+        setNotes(summary);
+      }
+      return next;
+    });
+  };
+
+  const handleApplyQuickDiscount = (rate: number, label: string) => {
+    const total = Math.max(0, Number(totalAmount) || 0);
+    const disc = Math.round(total * rate);
+    setDiscountAmount(String(disc));
+    showToast(`Applied ${label} (${(rate * 100).toFixed(0)}% off: ₱${disc.toLocaleString()})`, "info");
   };
 
   if (!isOpen) return null;
@@ -236,9 +313,12 @@ export function CreateBillModal({
         };
       }
 
+      const effectiveDentistId = dentistId || dentists[0]?.id || null;
+
       const insertPayload: any = {
         patient_id: patientId,
         branch_id: activeBranch?.id || currentStaff?.branch_id || null,
+        dentist_id: effectiveDentistId,
         total_amount: numTotal,
         discount_amount: numDiscount,
         status: "unpaid",
@@ -264,6 +344,14 @@ export function CreateBillModal({
         .single();
 
       if (error) throw error;
+
+      // Update included treatments to billed status and link to this invoice
+      if (selectedTreatmentIds.length > 0 && data?.id) {
+        await supabase
+          .from("treatments")
+          .update({ bill_id: data.id, billing_status: "billed" })
+          .in("id", selectedTreatmentIds);
+      }
 
       showToast(
         isInstallment
@@ -421,6 +509,26 @@ export function CreateBillModal({
               </select>
             </div>
 
+            {/* Attending Dentist Selection */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-teal-600" />
+                Attending Dentist (Production Attribution) *
+              </label>
+              <select
+                value={dentistId}
+                onChange={(e) => setDentistId(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none"
+              >
+                <option value="">Select Doctor...</option>
+                {dentists.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.full_name} ({d.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Associated Appointment (Optional) */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
@@ -443,38 +551,133 @@ export function CreateBillModal({
               </select>
             </div>
 
+            {/* Pending Completed Treatments from Chairside Operatory */}
+            {pendingTreatments.length > 0 && (
+              <div className="p-3.5 rounded-2xl bg-teal-50/80 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-teal-950 dark:text-teal-200 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-teal-600" />
+                    Unbilled Completed Treatments ({pendingTreatments.length})
+                  </span>
+                  <span className="text-[10px] text-teal-700 dark:text-teal-300 font-medium">
+                    Select procedures to bundle into this invoice
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                  {pendingTreatments.map((t) => {
+                    const isChecked = selectedTreatmentIds.includes(t.id);
+                    return (
+                      <label
+                        key={t.id}
+                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
+                          isChecked
+                            ? "bg-white dark:bg-slate-900 border-teal-500 shadow-2xs"
+                            : "bg-white/40 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-60"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleToggleTreatment(t.id)}
+                            className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 cursor-pointer"
+                          />
+                          <div>
+                            <span className="font-semibold text-slate-900 dark:text-slate-100">
+                              {t.procedure_name}
+                            </span>
+                            {t.tooth_number && (
+                              <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono font-bold text-slate-600 dark:text-slate-300">
+                                Tooth #{t.tooth_number}
+                              </span>
+                            )}
+                            {t.dentist?.full_name && (
+                              <span className="block text-[10px] text-slate-500">
+                                Performed by Dr. {t.dentist.full_name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="font-mono font-bold text-teal-700 dark:text-teal-300">
+                          ₱{Number(t.cost || 0).toLocaleString()}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Total Fee & Discount */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  {isInstallment ? "Total Package Contract (₱) *" : "Total Treatment Fee (₱) *"}
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={totalAmount}
-                  onChange={(e) => setTotalAmount(e.target.value)}
-                  placeholder="0.00"
-                  required
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none"
-                />
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    {isInstallment ? "Total Package Contract (₱) *" : "Total Treatment Fee (₱) *"}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={totalAmount}
+                    onChange={(e) => setTotalAmount(e.target.value)}
+                    placeholder="0.00"
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                    <Tag className="w-3 h-3 text-slate-400" />
+                    Discount / Voucher (₱)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={discountAmount}
+                    onChange={(e) => setDiscountAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                  />
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                  <Tag className="w-3 h-3 text-slate-400" />
-                  Discount / Voucher (₱)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={discountAmount}
-                  onChange={(e) => setDiscountAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none"
-                />
+              {/* 1-Click Quick Statutory & Clinic Discount Buttons */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                <span className="text-[10px] font-semibold text-slate-400 mr-1">Quick Discounts:</span>
+                <button
+                  type="button"
+                  onClick={() => handleApplyQuickDiscount(0.20, "Senior Citizen (RA 9994)")}
+                  className="px-2 py-1 rounded-lg text-[10px] font-bold border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 hover:bg-purple-100 cursor-pointer transition-colors"
+                >
+                  🇵🇭 Senior Citizen (20%)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyQuickDiscount(0.20, "PWD (RA 10754)")}
+                  className="px-2 py-1 rounded-lg text-[10px] font-bold border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 hover:bg-blue-100 cursor-pointer transition-colors"
+                >
+                  ♿ PWD (20%)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyQuickDiscount(0.10, "Courtesy / Family")}
+                  className="px-2 py-1 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 cursor-pointer transition-colors"
+                >
+                  👥 Courtesy (10%)
+                </button>
+                {Number(discountAmount) > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setDiscountAmount("0")}
+                    className="px-2 py-1 rounded-lg text-[10px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer transition-colors"
+                  >
+                    Clear Discount
+                  </button>
+                )}
               </div>
             </div>
 

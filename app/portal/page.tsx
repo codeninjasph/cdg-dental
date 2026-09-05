@@ -85,6 +85,7 @@ export default function DashboardPage() {
     patientId: string;
     patientName: string;
     initialTooth?: number | null;
+    appointmentId?: string | null;
   }>({
     isOpen: false,
     patientId: "",
@@ -585,6 +586,7 @@ export default function DashboardPage() {
                       isOpen: true,
                       patientId: inTreatmentAppt.patient?.id,
                       patientName: `${inTreatmentAppt.patient?.first_name} ${inTreatmentAppt.patient?.last_name}`,
+                      appointmentId: inTreatmentAppt.id,
                     })
                   }
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm hover:shadow-md shadow-purple-600/20 transition-all cursor-pointer"
@@ -897,6 +899,7 @@ export default function DashboardPage() {
                                 isOpen: true,
                                 patientId: appt.patient?.id,
                                 patientName: `${appt.patient?.first_name} ${appt.patient?.last_name}`,
+                                appointmentId: appt.id,
                               })
                             }
                             className="px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white transition-colors cursor-pointer flex items-center gap-1"
@@ -1102,10 +1105,11 @@ export default function DashboardPage() {
           onSuccess={() => {
             setTreatmentModal({ isOpen: false, patientId: "", patientName: "" });
             triggerRefresh();
-            showToast("Treatment recorded and billed successfully!", "success");
+            showToast("Treatment recorded and queued for front-desk checkout!", "success");
           }}
           patientId={treatmentModal.patientId}
           initialToothNumber={treatmentModal.initialTooth}
+          appointmentId={treatmentModal.appointmentId}
         />
       )}
 

@@ -60,13 +60,15 @@ export default function BillingPage() {
   const loadBillingData = async () => {
     setIsLoading(true);
     try {
-      // 1. Treatment bills with patient, branch, and payments
+      // 1. Treatment bills with patient, branch, dentist, and payments
       let billsQuery = supabase
         .from("treatment_bills")
         .select(`
           *,
           branch:branches(id, name),
           patient:patients(id, first_name, last_name, phone),
+          dentist:profiles!treatment_bills_dentist_id_fkey(id, full_name),
+          treatments:treatments(*),
           payments:payment_logs(*)
         `)
         .order("created_at", { ascending: false });

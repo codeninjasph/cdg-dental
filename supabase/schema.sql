@@ -143,10 +143,14 @@ CREATE TABLE IF NOT EXISTS treatments (
     procedure_name TEXT NOT NULL,
     clinical_notes TEXT,
     cost NUMERIC(10, 2) NOT NULL DEFAULT 0.00 CHECK (cost >= 0),
+    bill_id UUID,
+    billing_status TEXT DEFAULT 'pending' CHECK (billing_status IN ('pending', 'billed', 'waived')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_treatments_patient ON treatments(patient_id);
+CREATE INDEX IF NOT EXISTS idx_treatments_bill ON treatments(bill_id);
+CREATE INDEX IF NOT EXISTS idx_treatments_pending ON treatments(patient_id, billing_status);
 
 -- 9. PATIENT DIGITAL RECORDS & X-RAYS
 CREATE TABLE IF NOT EXISTS patient_documents (
@@ -170,6 +174,8 @@ CREATE TABLE IF NOT EXISTS treatment_bills (
     invoice_number TEXT UNIQUE NOT NULL DEFAULT ('INV-' || TO_CHAR(NOW(), 'YYYYMM') || '-' || LPAD(nextval('invoice_seq')::TEXT, 4, '0')),
     patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
     appointment_id UUID REFERENCES appointments(id) ON DELETE SET NULL,
+    dentist_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    branch_id UUID REFERENCES branches(id) ON DELETE SET NULL,
     total_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00 CHECK (total_amount >= 0),
     discount_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00 CHECK (discount_amount >= 0),
     net_amount NUMERIC(10, 2) GENERATED ALWAYS AS (GREATEST(total_amount - discount_amount, 0.00)) STORED,
@@ -188,6 +194,7 @@ CREATE TABLE IF NOT EXISTS treatment_bills (
 
 CREATE INDEX IF NOT EXISTS idx_bills_created ON treatment_bills(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_bills_patient ON treatment_bills(patient_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bills_dentist ON treatment_bills(dentist_id);
 
 CREATE TABLE IF NOT EXISTS payment_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

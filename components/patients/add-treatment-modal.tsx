@@ -13,6 +13,7 @@ interface AddTreatmentModalProps {
   onSuccess: () => void;
   patientId: string;
   initialToothNumber?: number | null;
+  appointmentId?: string | null;
 }
 
 const COMMON_PROCEDURES = [
@@ -34,6 +35,7 @@ export function AddTreatmentModal({
   onSuccess,
   patientId,
   initialToothNumber,
+  appointmentId,
 }: AddTreatmentModalProps) {
   const { currentStaff, staffList, showToast, activeBranch } = useClinic();
   const [procedureName, setProcedureName] = useState("");
@@ -43,7 +45,7 @@ export function AddTreatmentModal({
   const [cost, setCost] = useState<string>("2500");
   const [dentistId, setDentistId] = useState(currentStaff?.id || "");
   const [clinicalNotes, setClinicalNotes] = useState("");
-  const [createInvoice, setCreateInvoice] = useState(true);
+  const [immediateInvoice, setImmediateInvoice] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const dentists = staffList.filter((s) => s.role === "dentist" || s.role === "admin");
@@ -63,36 +65,60 @@ export function AddTreatmentModal({
     try {
       const numCost = Number(cost) || 0;
       const tNum = toothNumber ? Number(toothNumber) : null;
+      const effectiveDentistId = dentistId || dentists[0]?.id || "3cb85fbe-8060-4347-915a-1d400aa160ca";
 
-      // 1. Insert treatment
+      // 1. Insert treatment as pending checkout
       const { data: treatment, error: tErr } = await supabase
         .from("treatments")
         .insert({
           patient_id: patientId,
-          dentist_id: dentistId || dentists[0]?.id || "3cb85fbe-8060-4347-915a-1d400aa160ca",
+          dentist_id: effectiveDentistId,
+          appointment_id: appointmentId || null,
           tooth_number: tNum,
           procedure_name: procedureName.trim(),
           clinical_notes: clinicalNotes.trim() || null,
           cost: numCost,
+          billing_status: immediateInvoice ? "billed" : "pending",
         })
         .select()
         .single();
 
       if (tErr) throw tErr;
 
-      // 2. Optionally generate treatment bill
-      if (createInvoice && numCost > 0) {
-        await supabase.from("treatment_bills").insert({
-          patient_id: patientId,
-          branch_id: activeBranch?.id || currentStaff?.branch_id || null,
-          total_amount: numCost,
-          discount_amount: 0.00,
-          due_date: new Date().toISOString().split("T")[0],
-          notes: `Invoice generated for: ${procedureName.trim()}${tNum ? ` (Tooth #${tNum})` : ""}`,
-        });
+      // 2. Optionally generate immediate standalone treatment bill if requested
+      if (immediateInvoice && numCost > 0) {
+        const { data: newBill, error: bErr } = await supabase
+          .from("treatment_bills")
+          .insert({
+            patient_id: patientId,
+            branch_id: activeBranch?.id || currentStaff?.branch_id || null,
+            appointment_id: appointmentId || null,
+            dentist_id: effectiveDentistId,
+            total_amount: numCost,
+            discount_amount: 0.00,
+            due_date: new Date().toISOString().split("T")[0],
+            notes: `Invoice generated for: ${procedureName.trim()}${tNum ? ` (Tooth #${tNum})` : ""}`,
+          })
+          .select()
+          .single();
+
+        if (bErr) throw bErr;
+
+        // Link treatment to the newly created bill
+        if (newBill && treatment) {
+          await supabase
+            .from("treatments")
+            .update({ bill_id: newBill.id, billing_status: "billed" })
+            .eq("id", treatment.id);
+        }
       }
 
-      showToast(`Recorded treatment: ${procedureName.trim()}`, "success");
+      showToast(
+        immediateInvoice
+          ? `Recorded and invoiced: ${procedureName.trim()}`
+          : `Recorded: ${procedureName.trim()} (Queued for Front-Desk Checkout)`,
+        "success"
+      );
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -241,17 +267,33 @@ export function AddTreatmentModal({
             />
           </div>
 
-          {/* Auto-generate invoice checkbox */}
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-teal-50/50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-900/60">
-            <input
-              type="checkbox"
-              id="createInvoice"
-              checked={createInvoice}
-              onChange={(e) => setCreateInvoice(e.target.checked)}
-              className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 cursor-pointer"
-            />
-            <label htmlFor="createInvoice" className="text-xs font-semibold text-teal-900 dark:text-teal-200 cursor-pointer">
-              Automatically generate invoice in Financial Ledger for billing
+          {/* Checkout Queue Notice & Optional Direct Billing */}
+          <div className="space-y-2">
+            <div className="p-3.5 rounded-xl bg-teal-50/80 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800/70 flex items-start gap-3">
+              <div className="p-1.5 rounded-lg bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300 shrink-0 mt-0.5">
+                <FileText className="w-4 h-4" />
+              </div>
+              <div className="text-xs">
+                <span className="font-bold text-teal-900 dark:text-teal-200 block">
+                  Queued for Front-Desk Checkout & Billing
+                </span>
+                <p className="text-teal-700 dark:text-teal-400 mt-0.5 leading-relaxed">
+                  This procedure will be routed to the front desk reception slip so the secretary can bundle all visit treatments into a single invoice with Senior Citizen (20%), PWD, or clinic package discounts.
+                </p>
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 px-1 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                id="immediateInvoice"
+                checked={immediateInvoice}
+                onChange={(e) => setImmediateInvoice(e.target.checked)}
+                className="w-3.5 h-3.5 rounded text-teal-600 focus:ring-teal-500 cursor-pointer"
+              />
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                Direct Invoicing: Finalize bill immediately without secretary review
+              </span>
             </label>
           </div>
 

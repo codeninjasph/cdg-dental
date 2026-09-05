@@ -22,6 +22,7 @@ import { DocumentIntakeModal } from "@/components/secretary/document-intake-moda
 import { MergePatientModal } from "@/components/patients/merge-patient-modal";
 import { ConfirmRescheduleModal } from "@/components/secretary/confirm-reschedule-modal";
 import { Pagination } from "@/components/ui/pagination";
+import { ModalPortal } from "@/components/ui/modal-portal";
 
 import {
   Calendar,
@@ -59,6 +60,8 @@ import {
   Copy,
   CalendarCheck,
   CalendarPlus,
+  Receipt,
+  X,
 } from "lucide-react";
 
 function formatTime12h(timeStr?: string) {
@@ -127,7 +130,9 @@ function SecretaryPortalContent() {
   const [bills, setBills] = useState<any[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
+  const [pendingTreatments, setPendingTreatments] = useState<any[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
+  const [showPosBreakdown, setShowPosBreakdown] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Filters
@@ -274,10 +279,10 @@ function SecretaryPortalContent() {
       let payQuery = supabase
         .from("payment_logs")
         .select(
-          `*, bill:treatment_bills(invoice_number, patient:patients(first_name, last_name)), staff:profiles(full_name)`
+          `*, bill:treatment_bills(invoice_number, notes, patient:patients(first_name, last_name)), staff:profiles(full_name)`
         )
         .order("logged_at", { ascending: false })
-        .limit(25);
+        .limit(100);
 
       if (activeBranch?.id) {
         payQuery = payQuery.eq("branch_id", activeBranch.id);
@@ -285,7 +290,15 @@ function SecretaryPortalContent() {
       const { data: payData } = await payQuery;
       if (payData) setPayments(payData);
 
-      // 6. Patient Documents
+      // 6. Pending Treatments from Chairside Operatory waiting for Front-Desk Checkout
+      const { data: pendTreatments } = await supabase
+        .from("treatments")
+        .select(`*, patient:patients(id, first_name, last_name, phone), dentist:profiles(id, full_name)`)
+        .eq("billing_status", "pending")
+        .order("created_at", { ascending: false });
+      if (pendTreatments) setPendingTreatments(pendTreatments);
+
+      // 7. Patient Documents
       const { data: docData } = await supabase
         .from("patient_documents")
         .select(
@@ -583,13 +596,53 @@ function SecretaryPortalContent() {
   const todayCompletedCount = appointments.filter(
     (a) => a.status === "completed"
   ).length;
-  const todayCollectedTotal = payments
-    .filter((p) => {
-      const payDate = p.logged_at.split("T")[0];
-      const today = new Date().toISOString().split("T")[0];
-      return payDate === today;
-    })
-    .reduce((sum, p) => sum + Number(p.amount_logged || 0), 0);
+  // Manila (PST UTC+8) Timezone-safe daily collection filtering
+  const todayPayments = useMemo(() => {
+    const manilaTodayStr = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+
+    return payments.filter((p) => {
+      if (!p.logged_at) return false;
+      const logDate = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Manila",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date(p.logged_at));
+      return logDate === manilaTodayStr;
+    });
+  }, [payments]);
+
+  const todayCollectedTotal = useMemo(() => {
+    return todayPayments.reduce((sum, p) => sum + Number(p.amount_logged || 0), 0);
+  }, [todayPayments]);
+
+  // Group pending treatments by patient for front-desk checkout
+  const pendingCheckoutsByPatient = useMemo(() => {
+    const map: Record<
+      string,
+      { patient: any; dentist: any; treatments: any[]; totalCost: number }
+    > = {};
+    pendingTreatments.forEach((t) => {
+      if (!t.patient) return;
+      const pId = t.patient_id;
+      if (!map[pId]) {
+        map[pId] = {
+          patient: t.patient,
+          dentist: t.dentist,
+          treatments: [],
+          totalCost: 0,
+        };
+      }
+      map[pId].treatments.push(t);
+      map[pId].totalCost += Number(t.cost || 0);
+    });
+    return Object.values(map);
+  }, [pendingTreatments]);
 
   const queueAppointments = appointments.filter((a) => {
     const apptDate = a.start_time.split("T")[0];
@@ -841,12 +894,16 @@ function SecretaryPortalContent() {
         </div>
 
         {/* POS Collected Today */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
+        <div
+          onClick={() => setShowPosBreakdown(true)}
+          title="Click to view today's register drawer breakdown"
+          className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all cursor-pointer hover:border-teal-400 group"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Today's POS
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-teal-600 transition-colors">
+              Today's POS Drawer
             </span>
-            <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-600 dark:text-teal-400">
+            <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-600 dark:text-teal-400 group-hover:scale-105 transition-transform">
               <DollarSign className="w-5 h-5" />
             </div>
           </div>
@@ -855,9 +912,14 @@ function SecretaryPortalContent() {
               ₱{todayCollectedTotal.toLocaleString(undefined, { minimumFractionDigits: 0 })}
             </span>
           </div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-            Cash & GCash collected
-          </p>
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              {todayPayments.length} collection{todayPayments.length === 1 ? "" : "s"} today
+            </p>
+            <span className="text-[10px] text-teal-600 dark:text-teal-400 font-bold group-hover:underline">
+              Drawer Log →
+            </span>
+          </div>
         </div>
       </div>
 
@@ -1923,6 +1985,80 @@ function SecretaryPortalContent() {
             </button>
           </div>
 
+          {/* Pending Operatory Checkouts / Routing Slips */}
+          {pendingCheckoutsByPatient.length > 0 && (
+            <div className="bg-gradient-to-br from-teal-50 to-emerald-50 dark:from-teal-950/40 dark:to-emerald-950/30 border border-teal-200 dark:border-teal-800 rounded-3xl p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-teal-600 text-white shadow-xs">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base flex items-center gap-2">
+                      Ready for Front-Desk Checkout
+                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-teal-600 text-white font-bold font-mono">
+                        {pendingCheckoutsByPatient.length} Patient{pendingCheckoutsByPatient.length === 1 ? "" : "s"}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Completed procedures queued from chairside operatory waiting for visit invoice & POS settlement.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {pendingCheckoutsByPatient.map((item) => (
+                  <div
+                    key={item.patient.id}
+                    className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-teal-200/80 dark:border-teal-800/80 shadow-2xs flex flex-col justify-between gap-3"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                          {item.patient.first_name} {item.patient.last_name}
+                        </span>
+                        <span className="text-xs font-mono font-bold text-teal-700 dark:text-teal-300">
+                          ₱{item.totalCost.toLocaleString()}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 block mt-0.5">
+                        Attending: Dr. {item.dentist?.full_name || "Doctor"}
+                      </span>
+                      <div className="mt-2 space-y-1">
+                        {item.treatments.map((t) => (
+                          <div
+                            key={t.id}
+                            className="text-[11px] text-slate-600 dark:text-slate-300 flex items-center justify-between"
+                          >
+                            <span className="truncate">
+                              • {t.procedure_name} {t.tooth_number ? `(#${t.tooth_number})` : ""}
+                            </span>
+                            <span className="font-mono text-[10px] text-slate-400 shrink-0 ml-2">
+                              ₱{Number(t.cost || 0).toLocaleString()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setSelectedPatientForBill(item.patient.id);
+                        setSelectedApptForBill(undefined);
+                        setIsCreateBillOpen(true);
+                      }}
+                      className="w-full mt-2 py-2 px-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                    >
+                      <Receipt className="w-3.5 h-3.5" />
+                      <span>Review & Bill Patient</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Outstanding Balances — same card style as /portal outstanding widget */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
@@ -2272,6 +2408,111 @@ function SecretaryPortalContent() {
         dentists={dentists}
         branches={branches}
       />
+
+      {/* POS Drawer Daily Collections Modal */}
+      {showPosBreakdown && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[85vh]">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/60">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300">
+                    <DollarSign className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">
+                      Today's POS Register Drawer
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      {activeBranch?.name || "Clinic Branch"} • Collections logged today
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPosBreakdown(false)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4 overflow-y-auto">
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-teal-900 dark:text-teal-200 block">
+                      Total POS Collected Today
+                    </span>
+                    <span className="text-[11px] text-teal-700 dark:text-teal-400">
+                      {todayPayments.length} transaction{todayPayments.length === 1 ? "" : "s"} across all stations
+                    </span>
+                  </div>
+                  <span className="text-2xl font-extrabold font-mono text-teal-700 dark:text-teal-300">
+                    ₱{todayCollectedTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1 block">
+                    Itemized Payments Logged Today
+                  </span>
+                  {todayPayments.length === 0 ? (
+                    <div className="text-center py-8 text-xs text-slate-400 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                      No payments recorded yet today.
+                    </div>
+                  ) : (
+                    todayPayments.map((p) => {
+                      const patientName = p.bill?.patient
+                        ? `${p.bill.patient.first_name} ${p.bill.patient.last_name}`
+                        : "Patient Account";
+                      const timeStr = new Date(p.logged_at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      });
+                      return (
+                        <div
+                          key={p.id}
+                          className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900 dark:text-slate-100">
+                                {patientName}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-900/60">
+                                {p.payment_method}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
+                              <span className="font-mono">{p.bill?.invoice_number || "Invoice"}</span>
+                              {p.notes && <span>• {p.notes}</span>}
+                              {p.staff?.full_name && <span>• Handled by {p.staff.full_name}</span>}
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="font-mono font-extrabold text-teal-700 dark:text-teal-300 text-sm block">
+                              ₱{Number(p.amount_logged || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-[10px] text-slate-400">{timeStr}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="px-6 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 flex justify-end">
+                <button
+                  onClick={() => setShowPosBreakdown(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 font-bold text-xs text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                >
+                  Close Drawer Log
+                </button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
     </div>
   );
 }
