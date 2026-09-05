@@ -327,7 +327,6 @@ export async function activateInvitedStaffUser({
     SET 
       encrypted_password = extensions.crypt($1, extensions.gen_salt('bf', 10)),
       email_confirmed_at = now(),
-      confirmed_at = now(),
       confirmation_token = '',
       recovery_token = '',
       email_change_token_new = '',
@@ -505,7 +504,6 @@ export async function resetStaffPasswordWithToken({
       encrypted_password = extensions.crypt($1, extensions.gen_salt('bf', 10)),
       recovery_token = '',
       email_confirmed_at = COALESCE(email_confirmed_at, now()),
-      confirmed_at = COALESCE(confirmed_at, now()),
       updated_at = now()
     WHERE id = $2::uuid
     `,
@@ -559,7 +557,6 @@ export async function directAdminPasswordReset({
       encrypted_password = extensions.crypt($1, extensions.gen_salt('bf', 10)),
       recovery_token = '',
       email_confirmed_at = COALESCE(email_confirmed_at, now()),
-      confirmed_at = COALESCE(confirmed_at, now()),
       updated_at = now()
     WHERE id = $2::uuid
     `,
