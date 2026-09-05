@@ -40,21 +40,28 @@ export interface DentistDutyStatus {
 const DAY_MAP: Record<string, number> = {
   sun: 0,
   sunday: 0,
+  sundays: 0,
   mon: 1,
   monday: 1,
+  mondays: 1,
   tue: 2,
   tues: 2,
   tuesday: 2,
+  tuesdays: 2,
   wed: 3,
   wednesday: 3,
+  wednesdays: 3,
   thu: 4,
   thur: 4,
   thurs: 4,
   thursday: 4,
+  thursdays: 4,
   fri: 5,
   friday: 5,
+  fridays: 5,
   sat: 6,
   saturday: 6,
+  saturdays: 6,
 };
 
 export const DAY_NAMES = [
@@ -70,19 +77,63 @@ export const DAY_NAMES = [
 export const DAY_SHORT_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /**
+ * Safely normalizes any date input (YYYY-MM-DD, ISO 8601 string, or Date instance)
+ * into a valid Date object set to local noon (12:00:00).
+ * Setting the time to local noon prevents timezone/DST date flips when extracting
+ * the calendar day of week with getDay().
+ */
+export function normalizeDateInput(dateInput?: string | Date | null): Date {
+  if (!dateInput) return new Date();
+
+  if (dateInput instanceof Date) {
+    if (isNaN(dateInput.getTime())) return new Date();
+    return new Date(dateInput.getFullYear(), dateInput.getMonth(), dateInput.getDate(), 12, 0, 0);
+  }
+
+  if (typeof dateInput === "string") {
+    const trimmed = dateInput.trim();
+    // Match "YYYY-MM-DD" prefix
+    const ymdMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (ymdMatch) {
+      const year = parseInt(ymdMatch[1], 10);
+      const month = parseInt(ymdMatch[2], 10) - 1;
+      const day = parseInt(ymdMatch[3], 10);
+      return new Date(year, month, day, 12, 0, 0);
+    }
+
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 12, 0, 0);
+    }
+  }
+
+  return new Date();
+}
+
+/**
  * Parses day string into an array of day-of-week indices (0 = Sun, 1 = Mon, ..., 6 = Sat)
  * Supports:
+ * - "Daily", "Everyday", "Every day", "All Days", "All Week", "7 Days" -> all 7 days [0, 1, 2, 3, 4, 5, 6]
  * - "Mon, Wed, Fri" or "Mon,Wed,Fri"
  * - "Tue, Thu, Sat"
  * - "Mon – Fri", "Mon-Fri", "Monday to Friday"
- * - "Daily", "Everyday", "Weekdays", "Weekends"
+ * - "Mon – Sun", "Mon to Sun" (includes Sunday wrap-around)
+ * - "Weekdays" -> [1, 2, 3, 4, 5], "Weekends" -> [0, 6]
  */
 export function parseDaysOfWeek(daysStr: string): number[] {
   if (!daysStr || typeof daysStr !== "string") return [];
   const normalized = daysStr.toLowerCase().trim();
 
-  if (normalized.includes("daily") || normalized.includes("everyday") || normalized.includes("all days")) {
-    return [1, 2, 3, 4, 5, 6];
+  // "Daily", "Everyday", "All Days", etc. represent full 7-day practice including Sunday (0)
+  if (
+    normalized.includes("daily") ||
+    normalized.includes("everyday") ||
+    normalized.includes("every day") ||
+    normalized.includes("all days") ||
+    normalized.includes("all week") ||
+    normalized.includes("7 days")
+  ) {
+    return [0, 1, 2, 3, 4, 5, 6];
   }
   if (normalized.includes("weekday")) {
     return [1, 2, 3, 4, 5];
@@ -93,11 +144,12 @@ export function parseDaysOfWeek(daysStr: string): number[] {
 
   const result = new Set<number>();
 
-  // Check for range with dash or 'to' (e.g. "Mon - Fri" or "Monday to Saturday")
-  const rangeMatch = normalized.match(/([a-z]+)\s*(?:[-–—]|to)\s*([a-z]+)/i);
-  if (rangeMatch) {
-    const startToken = rangeMatch[1].toLowerCase().slice(0, 3);
-    const endToken = rangeMatch[2].toLowerCase().slice(0, 3);
+  // Check for all ranges with dash or 'to' (e.g. "Mon - Fri", "Mon – Sun", "Fri - Mon")
+  const rangeRegex = /([a-z]+)\s*(?:[-–—]|to)\s*([a-z]+)/gi;
+  let match: RegExpExecArray | null;
+  while ((match = rangeRegex.exec(normalized)) !== null) {
+    const startToken = match[1].toLowerCase().slice(0, 3);
+    const endToken = match[2].toLowerCase().slice(0, 3);
     const startIdx = DAY_MAP[startToken];
     const endIdx = DAY_MAP[endToken];
 
@@ -105,7 +157,7 @@ export function parseDaysOfWeek(daysStr: string): number[] {
       if (startIdx <= endIdx) {
         for (let i = startIdx; i <= endIdx; i++) result.add(i);
       } else {
-        // Wrap around (e.g. Fri - Mon)
+        // Wrap around (e.g. Mon - Sun, Fri - Mon)
         for (let i = startIdx; i <= 6; i++) result.add(i);
         for (let i = 0; i <= endIdx; i++) result.add(i);
       }
@@ -116,7 +168,9 @@ export function parseDaysOfWeek(daysStr: string): number[] {
   const tokens = normalized.split(/[,/&\s]+/).filter(Boolean);
   for (const t of tokens) {
     const cleanToken = t.slice(0, 3);
-    if (DAY_MAP[cleanToken] !== undefined) {
+    if (DAY_MAP[t] !== undefined) {
+      result.add(DAY_MAP[t]);
+    } else if (DAY_MAP[cleanToken] !== undefined) {
       result.add(DAY_MAP[cleanToken]);
     }
   }
@@ -230,7 +284,7 @@ export function getDentistDutyForDate(
       ? dentist.cdoClinicDays
       : [];
 
-  const targetDate = typeof dateInput === "string" ? new Date(dateInput + "T00:00:00") : dateInput;
+  const targetDate = normalizeDateInput(dateInput);
   const dayOfWeek = targetDate.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
   const dayName = DAY_NAMES[dayOfWeek];
 
@@ -309,9 +363,9 @@ export function getDentistDutyForDate(
 export function getNextOnDutyDate(
   dentist: DentistWithSchedule,
   branch: BranchRef | string,
-  fromDateStr?: string
+  fromDateInput?: string | Date
 ): string | null {
-  const start = fromDateStr ? new Date(fromDateStr + "T00:00:00") : new Date();
+  const start = normalizeDateInput(fromDateInput);
 
   // Scan up to 30 days ahead
   for (let i = 1; i <= 30; i++) {
@@ -343,9 +397,10 @@ export function filterDentistsByDuty(
 } {
   const onDuty: { dentist: DentistWithSchedule; status: DentistDutyStatus }[] = [];
   const offDuty: { dentist: DentistWithSchedule; status: DentistDutyStatus }[] = [];
+  const targetDate = normalizeDateInput(dateInput);
 
   for (const d of dentists) {
-    const status = getDentistDutyForDate(d, branch, dateInput);
+    const status = getDentistDutyForDate(d, branch, targetDate);
     if (status.isOnDuty) {
       onDuty.push({ dentist: d, status });
     } else {
