@@ -103,7 +103,7 @@ export function CreateBillModal({
   preselectedPatientId,
   preselectedAppointmentId,
 }: CreateBillModalProps) {
-  const { showToast } = useClinic();
+  const { showToast, activeBranch, currentStaff } = useClinic();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientId, setPatientId] = useState(preselectedPatientId || "");
   const [appointmentId, setAppointmentId] = useState(preselectedAppointmentId || "");
@@ -238,6 +238,7 @@ export function CreateBillModal({
 
       const insertPayload: any = {
         patient_id: patientId,
+        branch_id: activeBranch?.id || currentStaff?.branch_id || null,
         total_amount: numTotal,
         discount_amount: numDiscount,
         status: "unpaid",

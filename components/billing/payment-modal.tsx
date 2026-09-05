@@ -29,6 +29,7 @@ interface PaymentModalProps {
     net_amount: number;
     total_paid: number;
     balance_due: number;
+    branch_id?: string | null;
     is_installment?: boolean;
     plan_type?: string | null;
     downpayment_amount?: number;
@@ -41,7 +42,7 @@ interface PaymentModalProps {
 }
 
 export function PaymentModal({ isOpen, onClose, onSuccess, bill }: PaymentModalProps) {
-  const { currentStaff, showToast } = useClinic();
+  const { currentStaff, showToast, activeBranch } = useClinic();
   const [method, setMethod] = useState<PaymentMethod>("gcash");
   const [amount, setAmount] = useState<string>("0");
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -121,6 +122,7 @@ export function PaymentModal({ isOpen, onClose, onSuccess, bill }: PaymentModalP
 
       const { error } = await supabase.from("payment_logs").insert({
         bill_id: bill.id,
+        branch_id: bill.branch_id || activeBranch?.id || currentStaff?.branch_id || null,
         amount_logged: numAmount,
         payment_method: method,
         reference_number: referenceNumber.trim() || null,

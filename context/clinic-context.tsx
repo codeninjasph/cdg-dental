@@ -31,7 +31,7 @@ interface ClinicContextType {
   removeToast: (id: string) => void;
   refreshTrigger: number;
   triggerRefresh: () => void;
-  refreshBranches: () => Promise<void>;
+  refreshBranches: () => Promise<Branch[] | void>;
 }
 
 const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
@@ -77,9 +77,12 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
           const match = bData.find((b) => b.id === prev.id);
           return match || bData[0];
         });
+        return bData;
       }
+      return [];
     } catch (e) {
       console.error("Failed to refresh branches:", e);
+      return [];
     }
   };
 
@@ -87,7 +90,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     async function loadMeta() {
       try {
         // 1. Fetch branches
-        await refreshBranches();
+        const branchList = await refreshBranches();
 
         // 2. Fetch staff profiles
         const { data: sData } = await supabase.from("profiles").select("*").order("full_name");
@@ -141,7 +144,15 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
             normalizedStaff.find((s) => s.role === activeRole) ||
             normalizedStaff[0];
 
-          if (activeStaff) setCurrentStaff(activeStaff);
+          if (activeStaff) {
+            setCurrentStaff(activeStaff);
+            if (activeStaff.branch_id) {
+              const assignedBranch = (branchList || []).find((b) => b.id === activeStaff.branch_id);
+              if (assignedBranch) {
+                setActiveBranch(assignedBranch);
+              }
+            }
+          }
           return;
         }
 
@@ -150,12 +161,22 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         if (savedCookieRole) {
           setCurrentRole(savedCookieRole);
           const match = normalizedStaff.find((s) => s.role === savedCookieRole);
-          if (match) setCurrentStaff(match);
+          if (match) {
+            setCurrentStaff(match);
+            if (match.branch_id) {
+              const assignedBranch = (branchList || []).find((b) => b.id === match.branch_id);
+              if (assignedBranch) setActiveBranch(assignedBranch);
+            }
+          }
         } else if (normalizedStaff.length > 0) {
           const defaultStaff = normalizedStaff.find((s) => s.role === "dentist") || normalizedStaff[0];
           setCurrentStaff(defaultStaff);
           setCurrentRole(defaultStaff.role);
           setRoleCookie(defaultStaff.role);
+          if (defaultStaff.branch_id) {
+            const assignedBranch = (branchList || []).find((b) => b.id === defaultStaff.branch_id);
+            if (assignedBranch) setActiveBranch(assignedBranch);
+          }
         }
       } catch (err) {
         console.error("Failed to load clinic metadata:", err);

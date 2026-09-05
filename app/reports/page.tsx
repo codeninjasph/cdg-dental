@@ -40,7 +40,7 @@ export type DateFilterPreset =
   | "custom";
 
 export default function ReportsPage() {
-  const { showToast, refreshTrigger, triggerRefresh, branches } = useClinic();
+  const { showToast, refreshTrigger, triggerRefresh, branches, activeBranch, currentStaff, isAdmin } = useClinic();
   const supabase = createClient();
 
   // Raw Database Data
@@ -54,8 +54,23 @@ export default function ReportsPage() {
   const [customStartDate, setCustomStartDate] = useState<string>("");
   const [customEndDate, setCustomEndDate] = useState<string>("");
 
+  // Branch Scope Logic
+  const userBranchId = currentStaff?.branch_id || activeBranch?.id || null;
+  const canSelectAllBranches = isAdmin || !currentStaff?.branch_id;
+  const [branchFilter, setBranchFilter] = useState<string>("auto");
+
+  const effectiveBranchFilter = useMemo(() => {
+    if (!canSelectAllBranches && userBranchId) {
+      return userBranchId;
+    }
+    if (branchFilter === "all") return "all";
+    if (branchFilter === "auto") {
+      return activeBranch?.id || userBranchId || "all";
+    }
+    return branchFilter;
+  }, [canSelectAllBranches, userBranchId, branchFilter, activeBranch]);
+
   // Secondary Filters
-  const [branchFilter, setBranchFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"overview" | "doctors" | "branches" | "receivables">("overview");
   const [chartInterval, setChartInterval] = useState<"daily" | "monthly">("daily");
   const [hoveredPoint, setHoveredPoint] = useState<any | null>(null);
@@ -69,6 +84,7 @@ export default function ReportsPage() {
         .from("treatment_bills")
         .select(`
           *,
+          branch:branches(id, name),
           patient:patients(id, first_name, last_name, phone),
           appointment:appointments(
             id,
@@ -85,15 +101,17 @@ export default function ReportsPage() {
       if (billErr) throw billErr;
       if (billData) setBills(billData);
 
-      // 2. Fetch payment logs joined with bill, patient, staff
+      // 2. Fetch payment logs joined with bill, patient, staff, branch
       const { data: logsData, error: logsErr } = await supabase
         .from("payment_logs")
         .select(`
           *,
+          branch:branches(id, name),
           bill:treatment_bills(
             id,
             invoice_number,
             net_amount,
+            branch_id,
             appointment_id,
             patient:patients(id, first_name, last_name),
             appointment:appointments(
@@ -176,9 +194,9 @@ export default function ReportsPage() {
       if (end && bDate > end) return false;
 
       // Branch filter
-      if (branchFilter !== "all") {
-        const bBranchId = b.appointment?.branch_id;
-        if (bBranchId !== branchFilter) return false;
+      if (effectiveBranchFilter !== "all") {
+        const bBranchId = b.branch_id || b.appointment?.branch_id;
+        if (bBranchId !== effectiveBranchFilter) return false;
       }
       return true;
     });
@@ -190,17 +208,25 @@ export default function ReportsPage() {
       if (end && pDate > end) return false;
 
       // Branch filter
-      if (branchFilter !== "all") {
-        const pBranchId = p.bill?.appointment?.branch_id;
-        if (pBranchId !== branchFilter) return false;
+      if (effectiveBranchFilter !== "all") {
+        const pBranchId = p.branch_id || p.bill?.branch_id || p.bill?.appointment?.branch_id;
+        if (pBranchId !== effectiveBranchFilter) return false;
       }
       return true;
     });
 
     return { filteredBills: fBills, filteredPayments: fPayments };
-  }, [bills, paymentLogs, dateRangeBounds, branchFilter]);
+  }, [bills, paymentLogs, dateRangeBounds, effectiveBranchFilter]);
 
   const { filteredBills, filteredPayments } = filteredData;
+
+  // Filter Outstanding Balances by Branch
+  const filteredBalances = useMemo(() => {
+    if (effectiveBranchFilter === "all") return outstandingBalances;
+    return outstandingBalances.filter(
+      (b) => b.branch_id === effectiveBranchFilter
+    );
+  }, [outstandingBalances, effectiveBranchFilter]);
 
   // 4. Financial Metric Calculations
   const metrics = useMemo(() => {
@@ -230,7 +256,7 @@ export default function ReportsPage() {
     });
 
     // Total outstanding receivables
-    const outstandingTotal = outstandingBalances.reduce((acc, b) => acc + Number(b.balance_due || 0), 0);
+    const outstandingTotal = filteredBalances.reduce((acc, b) => acc + Number(b.balance_due || 0), 0);
 
     // Installment Performance
     const installmentBills = filteredBills.filter((b) => b.is_installment);
@@ -252,7 +278,7 @@ export default function ReportsPage() {
       installmentBilled,
       installmentCollected,
     };
-  }, [filteredBills, filteredPayments, outstandingBalances]);
+  }, [filteredBills, filteredPayments, filteredBalances]);
 
   // 5. Timeline Chart Data Series (Daily or Monthly)
   const chartData = useMemo(() => {
@@ -349,7 +375,7 @@ export default function ReportsPage() {
 
     const now = new Date().getTime();
 
-    outstandingBalances.forEach((b) => {
+    filteredBalances.forEach((b) => {
       const billDate = b.created_at ? new Date(b.created_at).getTime() : now;
       const ageDays = Math.floor((now - billDate) / (1000 * 60 * 60 * 24));
       const bal = Number(b.balance_due || 0);
@@ -370,7 +396,7 @@ export default function ReportsPage() {
     });
 
     return buckets;
-  }, [outstandingBalances]);
+  }, [filteredBalances]);
 
   // 9. Export CSV Utility
   const handleExportCSV = () => {
@@ -516,23 +542,30 @@ export default function ReportsPage() {
           </div>
 
           {/* Branch Filter Dropdown */}
+          {/* Branch Filter Dropdown / Badge */}
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <Building2 className="w-3.5 h-3.5 text-teal-600" />
               Branch:
             </span>
-            <select
-              value={branchFilter}
-              onChange={(e) => setBranchFilter(e.target.value)}
-              className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
-            >
-              <option value="all">All CDO Hubs (Consolidated)</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name.includes("—") ? b.name.split("—")[1].trim() : b.name}
-                </option>
-              ))}
-            </select>
+            {canSelectAllBranches ? (
+              <select
+                value={effectiveBranchFilter}
+                onChange={(e) => setBranchFilter(e.target.value)}
+                className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
+              >
+                <option value="all">All CDO Hubs (Consolidated)</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name.includes("—") ? b.name.split("—")[1].trim() : b.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-900/60">
+                {activeBranch?.name || "Assigned Branch"}
+              </span>
+            )}
           </div>
         </div>
 
@@ -656,7 +689,7 @@ export default function ReportsPage() {
             ₱{metrics.outstandingTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-500">
-            <span>{outstandingBalances.length} active patient accounts</span>
+            <span>{filteredBalances.length} active patient accounts</span>
             <span className="text-rose-500 font-semibold">Overdue & Installments</span>
           </div>
         </div>
@@ -1176,7 +1209,7 @@ export default function ReportsPage() {
                 <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   <span>Detailed Outstanding Balances Ledger</span>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-bold font-mono">
-                    {outstandingBalances.length} Pending
+                    {filteredBalances.length} Pending
                   </span>
                 </h4>
                 <Link
@@ -1204,14 +1237,14 @@ export default function ReportsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                      {outstandingBalances.length === 0 ? (
+                      {filteredBalances.length === 0 ? (
                         <tr>
                           <td colSpan={8} className="py-8 text-center text-slate-400 text-xs">
                             No delinquent balances found. All patient accounts are settled! 🎉
                           </td>
                         </tr>
                       ) : (
-                        outstandingBalances.map((b) => {
+                        filteredBalances.map((b) => {
                           const now = new Date().getTime();
                           const billDate = b.created_at ? new Date(b.created_at).getTime() : now;
                           const ageDays = Math.max(0, Math.floor((now - billDate) / (1000 * 60 * 60 * 24)));

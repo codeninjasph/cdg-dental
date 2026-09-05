@@ -35,7 +35,7 @@ export function AddTreatmentModal({
   patientId,
   initialToothNumber,
 }: AddTreatmentModalProps) {
-  const { currentStaff, staffList, showToast } = useClinic();
+  const { currentStaff, staffList, showToast, activeBranch } = useClinic();
   const [procedureName, setProcedureName] = useState("");
   const [toothNumber, setToothNumber] = useState<string>(
     initialToothNumber ? String(initialToothNumber) : ""
@@ -84,6 +84,7 @@ export function AddTreatmentModal({
       if (createInvoice && numCost > 0) {
         await supabase.from("treatment_bills").insert({
           patient_id: patientId,
+          branch_id: activeBranch?.id || currentStaff?.branch_id || null,
           total_amount: numCost,
           discount_amount: 0.00,
           due_date: new Date().toISOString().split("T")[0],

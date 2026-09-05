@@ -23,10 +23,11 @@ import {
   BarChart3,
   Search,
   Calendar,
+  Building2,
 } from "lucide-react";
 
 export default function BillingPage() {
-  const { showToast, refreshTrigger, triggerRefresh } = useClinic();
+  const { showToast, refreshTrigger, triggerRefresh, activeBranch, branches, currentStaff, isAdmin } = useClinic();
   const [bills, setBills] = useState<any[]>([]);
   const [balances, setBalances] = useState<OutstandingBalance[]>([]);
   const [paymentLogs, setPaymentLogs] = useState<any[]>([]);
@@ -34,6 +35,22 @@ export default function BillingPage() {
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "this_week" | "this_month">("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
+
+  // Branch Scoping Logic
+  const userBranchId = currentStaff?.branch_id || activeBranch?.id || null;
+  const canSelectAllBranches = isAdmin || !currentStaff?.branch_id;
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("auto");
+
+  const effectiveBranchId = React.useMemo(() => {
+    if (!canSelectAllBranches && userBranchId) {
+      return userBranchId;
+    }
+    if (selectedBranchId === "all") return "all";
+    if (selectedBranchId === "auto") {
+      return activeBranch?.id || userBranchId || "all";
+    }
+    return selectedBranchId;
+  }, [canSelectAllBranches, userBranchId, selectedBranchId, activeBranch]);
 
   // POS Payment Modal State
   const [activePaymentBill, setActivePaymentBill] = useState<any | null>(null);
@@ -43,36 +60,53 @@ export default function BillingPage() {
   const loadBillingData = async () => {
     setIsLoading(true);
     try {
-      // 1. Treatment bills with patient and payments
-      const { data: billData } = await supabase
+      // 1. Treatment bills with patient, branch, and payments
+      let billsQuery = supabase
         .from("treatment_bills")
         .select(`
           *,
+          branch:branches(id, name),
           patient:patients(id, first_name, last_name, phone),
           payments:payment_logs(*)
         `)
         .order("created_at", { ascending: false });
 
+      if (effectiveBranchId !== "all") {
+        billsQuery = billsQuery.eq("branch_id", effectiveBranchId);
+      }
+
+      const { data: billData } = await billsQuery;
       if (billData) setBills(billData);
 
       // 2. Outstanding balances view
-      const { data: balData } = await supabase
+      let balQuery = supabase
         .from("outstanding_balances")
         .select("*")
         .order("balance_due", { ascending: false });
 
+      if (effectiveBranchId !== "all") {
+        balQuery = balQuery.eq("branch_id", effectiveBranchId);
+      }
+
+      const { data: balData } = await balQuery;
       if (balData) setBalances(balData);
 
-      // 3. Payment logs with staff profile
-      const { data: logsData } = await supabase
+      // 3. Payment logs with staff profile and branch
+      let logsQuery = supabase
         .from("payment_logs")
         .select(`
           *,
-          bill:treatment_bills(invoice_number, patient:patients(first_name, last_name)),
+          branch:branches(id, name),
+          bill:treatment_bills(invoice_number, branch_id, patient:patients(first_name, last_name)),
           staff:profiles(full_name)
         `)
         .order("logged_at", { ascending: false });
 
+      if (effectiveBranchId !== "all") {
+        logsQuery = logsQuery.eq("branch_id", effectiveBranchId);
+      }
+
+      const { data: logsData } = await logsQuery;
       if (logsData) setPaymentLogs(logsData);
     } catch (err) {
       console.error("Error loading billing data:", err);
@@ -83,7 +117,25 @@ export default function BillingPage() {
 
   useEffect(() => {
     loadBillingData();
-  }, [refreshTrigger]);
+  }, [refreshTrigger, effectiveBranchId]);
+
+  // In-memory safety guard
+  const branchFilteredBills = React.useMemo(() => {
+    if (effectiveBranchId === "all") return bills;
+    return bills.filter((b) => b.branch_id === effectiveBranchId);
+  }, [bills, effectiveBranchId]);
+
+  const branchFilteredBalances = React.useMemo(() => {
+    if (effectiveBranchId === "all") return balances;
+    return balances.filter((b) => b.branch_id === effectiveBranchId);
+  }, [balances, effectiveBranchId]);
+
+  const branchFilteredPayments = React.useMemo(() => {
+    if (effectiveBranchId === "all") return paymentLogs;
+    return paymentLogs.filter(
+      (p) => p.branch_id === effectiveBranchId || p.bill?.branch_id === effectiveBranchId
+    );
+  }, [paymentLogs, effectiveBranchId]);
 
   // Date Filtering Logic
   const dateBoundaries = React.useMemo(() => {
@@ -106,26 +158,26 @@ export default function BillingPage() {
 
   const dateFilteredBills = React.useMemo(() => {
     const { start, end } = dateBoundaries;
-    return bills.filter((b) => {
+    return branchFilteredBills.filter((b) => {
       if (!start) return true;
       const bDate = new Date(b.created_at);
       return bDate >= start && (!end || bDate <= end);
     });
-  }, [bills, dateBoundaries]);
+  }, [branchFilteredBills, dateBoundaries]);
 
   const dateFilteredPayments = React.useMemo(() => {
     const { start, end } = dateBoundaries;
-    return paymentLogs.filter((p) => {
+    return branchFilteredPayments.filter((p) => {
       if (!start) return true;
       const pDate = new Date(p.logged_at);
       return pDate >= start && (!end || pDate <= end);
     });
-  }, [paymentLogs, dateBoundaries]);
+  }, [branchFilteredPayments, dateBoundaries]);
 
   // Aggregate Metrics (based on filtered date)
   const totalBilled = dateFilteredBills.reduce((sum, b) => sum + Number(b.net_amount), 0);
   const totalCollected = dateFilteredPayments.reduce((sum, p) => sum + Number(p.amount_logged), 0);
-  const totalOutstanding = balances.reduce((sum, b) => sum + Number(b.balance_due), 0);
+  const totalOutstanding = branchFilteredBalances.reduce((sum, b) => sum + Number(b.balance_due), 0);
 
   // Method breakdowns
   const gcashTotal = dateFilteredPayments
@@ -195,34 +247,65 @@ export default function BillingPage() {
         </Link>
       </div>
 
-      {/* Date Quick Filter Bar */}
+      {/* Date Quick Filter & Branch Scoping Bar */}
       <div className="flex items-center justify-between gap-3 flex-wrap bg-white dark:bg-slate-900 p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 px-2">
-            <Calendar className="w-3.5 h-3.5 text-teal-600" />
-            Date Scope:
-          </span>
-          {[
-            { id: "all", label: "All Time" },
-            { id: "today", label: "Today" },
-            { id: "this_week", label: "This Week" },
-            { id: "this_month", label: "This Month" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setDateFilter(tab.id as any);
-                setBillsPage(1);
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                dateFilter === tab.id
-                  ? "bg-teal-600 text-white font-bold shadow-2xs"
-                  : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 px-2">
+              <Calendar className="w-3.5 h-3.5 text-teal-600" />
+              Date Scope:
+            </span>
+            {[
+              { id: "all", label: "All Time" },
+              { id: "today", label: "Today" },
+              { id: "this_week", label: "This Week" },
+              { id: "this_month", label: "This Month" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setDateFilter(tab.id as any);
+                  setBillsPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  dateFilter === tab.id
+                    ? "bg-teal-600 text-white font-bold shadow-2xs"
+                    : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Branch Scoping Pill / Selector */}
+          <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 pl-3">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Building2 className="w-3.5 h-3.5 text-teal-600" />
+              Branch:
+            </span>
+            {canSelectAllBranches ? (
+              <select
+                value={effectiveBranchId}
+                onChange={(e) => {
+                  setSelectedBranchId(e.target.value);
+                  setBillsPage(1);
+                }}
+                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 cursor-pointer focus:outline-none focus:ring-1 focus:ring-teal-500"
+              >
+                <option value="all">All Branches</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-900/60">
+                {activeBranch?.name || "Assigned Branch"}
+              </span>
+            )}
+          </div>
         </div>
 
         <span className="text-[11px] text-slate-400 px-2 font-medium">
@@ -240,7 +323,7 @@ export default function BillingPage() {
           <div className="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-slate-900 dark:text-slate-100">
             ₱{totalBilled.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Across {bills.length} issued invoices</p>
+          <p className="text-[11px] text-slate-400 mt-1">Across {dateFilteredBills.length} issued invoices</p>
         </div>
 
         {/* Total Collected */}
@@ -266,12 +349,12 @@ export default function BillingPage() {
           <div className="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-rose-600">
             ₱{totalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">{balances.length} accounts with pending balance</p>
+          <p className="text-[11px] text-slate-400 mt-1">{branchFilteredBalances.length} accounts with pending balance</p>
         </div>
       </div>
 
       {/* OUTSTANDING BALANCES AGING LIST */}
-      {balances.length > 0 && (
+      {branchFilteredBalances.length > 0 && (
         <div className="p-6 rounded-3xl bg-rose-50/40 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/40 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -281,12 +364,12 @@ export default function BillingPage() {
               </h2>
             </div>
             <span className="text-xs font-mono font-bold text-rose-700 dark:text-rose-300">
-              {balances.length} Pending
+              {branchFilteredBalances.length} Pending
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {balances.map((b) => (
+            {branchFilteredBalances.map((b) => (
               <div
                 key={b.bill_id}
                 className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 shadow-xs flex items-center justify-between gap-3"
@@ -315,6 +398,7 @@ export default function BillingPage() {
                       const fullBill = bills.find((item) => item.id === b.bill_id);
                       setActivePaymentBill({
                         id: b.bill_id,
+                        branch_id: b.branch_id || fullBill?.branch_id,
                         invoice_number: b.invoice_number,
                         patient_name: `${b.first_name} ${b.last_name}`,
                         net_amount: Number(b.net_amount),
@@ -330,7 +414,7 @@ export default function BillingPage() {
                         payments: fullBill?.payments,
                       });
                     }}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-all"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
                   >
                     <QrCode className="w-3.5 h-3.5" />
                     <span>Pay POS</span>
@@ -420,11 +504,18 @@ export default function BillingPage() {
                           <td className="py-3.5 px-4 font-mono font-bold text-slate-800 dark:text-slate-200">
                             <div className="flex flex-col items-start gap-1">
                               <span>{b.invoice_number}</span>
-                              {b.is_installment && (
-                                <span className="text-[10px] px-1.5 py-0.2 rounded font-sans font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-200">
-                                  {b.plan_type ? b.plan_type.toUpperCase() : "INSTALLMENT"}
-                                </span>
-                              )}
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {b.branch?.name && (
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded font-sans font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                    {b.branch.name.replace("CDG Dental Clinic — ", "").replace("CDG Dental Clinic - ", "")}
+                                  </span>
+                                )}
+                                {b.is_installment && (
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded font-sans font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-200">
+                                    {b.plan_type ? b.plan_type.toUpperCase() : "INSTALLMENT"}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td className="py-3.5 px-4">
@@ -457,6 +548,7 @@ export default function BillingPage() {
                                 onClick={() =>
                                   setActivePaymentBill({
                                     id: b.id,
+                                    branch_id: b.branch_id,
                                     invoice_number: b.invoice_number,
                                     patient_name: `${b.patient?.first_name} ${b.patient?.last_name}`,
                                     net_amount: Number(b.net_amount),
@@ -472,7 +564,7 @@ export default function BillingPage() {
                                     payments: b.payments,
                                   })
                                 }
-                                className="px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold text-[11px] shadow-xs"
+                                className="px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold text-[11px] shadow-xs cursor-pointer"
                               >
                                 Pay POS
                               </button>
@@ -512,8 +604,8 @@ export default function BillingPage() {
           </h2>
 
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs p-5 space-y-3">
-            {paymentLogs.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-500">No payment logs recorded yet.</div>
+            {branchFilteredPayments.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500">No payment logs recorded yet for this branch.</div>
             ) : (
               paginatedPayments.map((p) => {
                 const methodBadge =
@@ -542,7 +634,14 @@ export default function BillingPage() {
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] text-slate-400">
-                      <span className="font-mono">{p.bill?.invoice_number}</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono">{p.bill?.invoice_number}</span>
+                        {p.branch?.name && (
+                          <span className="text-[9px] px-1.5 py-0.2 rounded font-sans font-medium bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-300">
+                            {p.branch.name.replace("CDG Dental Clinic — ", "").replace("CDG Dental Clinic - ", "")}
+                          </span>
+                        )}
+                      </div>
                       <span>{new Date(p.logged_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                     </div>
 
@@ -559,8 +658,8 @@ export default function BillingPage() {
             {/* Payments Compact Pagination */}
             <Pagination
               currentPage={paymentsPage}
-              totalPages={Math.max(1, Math.ceil(paymentLogs.length / paymentsPageSize))}
-              totalItems={paymentLogs.length}
+              totalPages={Math.max(1, Math.ceil(dateFilteredPayments.length / paymentsPageSize))}
+              totalItems={dateFilteredPayments.length}
               pageSize={paymentsPageSize}
               onPageChange={setPaymentsPage}
               itemName="payments"

@@ -219,7 +219,8 @@ function SecretaryPortalContent() {
   const loadSecretaryData = async () => {
     setIsLoading(true);
     try {
-      const { data: apptData } = await supabase
+      // 1. Appointments scoped by activeBranch
+      let apptQuery = supabase
         .from("appointments")
         .select(
           `id, start_time, end_time, status, notes, dentist_id, branch_id,
@@ -227,15 +228,27 @@ function SecretaryPortalContent() {
           dentist:profiles(id, full_name)`
         )
         .order("start_time", { ascending: true });
+
+      if (activeBranch?.id) {
+        apptQuery = apptQuery.eq("branch_id", activeBranch.id);
+      }
+      const { data: apptData } = await apptQuery;
       if (apptData) setAppointments(apptData);
 
-      const { data: balData } = await supabase
+      // 2. Outstanding Balances scoped by activeBranch
+      let balQuery = supabase
         .from("outstanding_balances")
         .select("*")
         .order("created_at", { ascending: false });
+
+      if (activeBranch?.id) {
+        balQuery = balQuery.eq("branch_id", activeBranch.id);
+      }
+      const { data: balData } = await balQuery;
       if (balData) setBalances(balData);
 
-      const { data: billData } = await supabase
+      // 3. Treatment Bills scoped by activeBranch
+      let billQuery = supabase
         .from("treatment_bills")
         .select(
           `*, patient:patients(id, first_name, last_name, phone, email, address),
@@ -243,23 +256,36 @@ function SecretaryPortalContent() {
           payments:payment_logs(id, amount_logged, payment_method, reference_number, logged_at, staff:profiles(full_name))`
         )
         .order("created_at", { ascending: false });
+
+      if (activeBranch?.id) {
+        billQuery = billQuery.eq("branch_id", activeBranch.id);
+      }
+      const { data: billData } = await billQuery;
       if (billData) setBills(billData);
 
+      // 4. Patients
       const { data: patData } = await supabase
         .from("patients")
         .select("*")
         .order("last_name", { ascending: true });
       if (patData) setPatients(patData);
 
-      const { data: payData } = await supabase
+      // 5. Payment Logs scoped by activeBranch
+      let payQuery = supabase
         .from("payment_logs")
         .select(
           `*, bill:treatment_bills(invoice_number, patient:patients(first_name, last_name)), staff:profiles(full_name)`
         )
         .order("logged_at", { ascending: false })
-        .limit(20);
+        .limit(25);
+
+      if (activeBranch?.id) {
+        payQuery = payQuery.eq("branch_id", activeBranch.id);
+      }
+      const { data: payData } = await payQuery;
       if (payData) setPayments(payData);
 
+      // 6. Patient Documents
       const { data: docData } = await supabase
         .from("patient_documents")
         .select(

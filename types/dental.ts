@@ -118,6 +118,7 @@ export interface TreatmentBill {
   id: string;
   invoice_number: string;
   patient_id: string;
+  branch_id?: string | null;
   appointment_id?: string | null;
   total_amount: number;
   discount_amount: number;
@@ -140,6 +141,7 @@ export interface TreatmentBill {
 export interface PaymentLog {
   id: string;
   bill_id: string;
+  branch_id?: string | null;
   amount_logged: number;
   payment_method: PaymentMethod;
   reference_number?: string | null;
@@ -153,6 +155,7 @@ export interface OutstandingBalance {
   bill_id: string;
   invoice_number: string;
   patient_id: string;
+  branch_id?: string | null;
   first_name: string;
   last_name: string;
   phone?: string | null;

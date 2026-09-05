@@ -45,7 +45,7 @@ export default function AppointmentsPage() {
     async function loadAppointments() {
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
+        let q = supabase
           .from("appointments")
           .select(`
             *,
@@ -53,6 +53,12 @@ export default function AppointmentsPage() {
             dentist:profiles(*)
           `)
           .order("start_time", { ascending: true });
+
+        if (activeBranch?.id) {
+          q = q.eq("branch_id", activeBranch.id);
+        }
+
+        const { data, error } = await q;
 
         if (data) setAppointments(data);
       } catch (err) {
@@ -80,6 +86,7 @@ export default function AppointmentsPage() {
   };
 
   const filtered = appointments.filter((a) => {
+    if (activeBranch?.id && a.branch_id && a.branch_id !== activeBranch.id) return false;
     if (selectedDentist !== "all" && a.dentist_id !== selectedDentist) return false;
     if (selectedStatus !== "all" && a.status !== selectedStatus) return false;
     return true;
