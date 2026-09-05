@@ -473,7 +473,114 @@ export default function BillingPage() {
           </div>
 
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* ── MOBILE INVOICES CARD LIST VIEW (Phones & Small Tablets) ── */}
+            <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+              {filteredBills.length === 0 ? (
+                <div className="p-8 text-center text-slate-500 text-xs">
+                  No invoices match the selected filter.
+                </div>
+              ) : (
+                paginatedBills.map((b) => {
+                  const totalPaidOnBill = b.payments
+                    ? b.payments.reduce((sum: number, p: any) => sum + Number(p.amount_logged), 0)
+                    : 0;
+                  const bal = Math.max(0, Number(b.net_amount) - totalPaidOnBill);
+
+                  return (
+                    <div key={b.id} className="p-4 space-y-2.5 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200 block">
+                            {b.invoice_number}
+                          </span>
+                          <Link
+                            href={`/patients/${b.patient?.id}`}
+                            className="font-bold text-slate-900 dark:text-slate-100 hover:text-teal-600 text-sm mt-0.5 block"
+                          >
+                            {b.patient?.last_name}, {b.patient?.first_name}
+                          </Link>
+                        </div>
+
+                        <span
+                          className={`text-[10px] uppercase font-extrabold px-2.5 py-0.5 rounded-full border shrink-0 ${
+                            billStatusColors[b.status] || "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {b.status.replace("_", " ")}
+                        </span>
+                      </div>
+
+                      {/* Amounts summary */}
+                      <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 text-xs">
+                        <div>
+                          <span className="text-[10px] uppercase text-slate-400 block font-medium">Net Bill</span>
+                          <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
+                            ₱{Number(b.net_amount).toLocaleString()}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase text-slate-400 block font-medium">Balance Due</span>
+                          <span className={`font-mono font-bold ${bal > 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600"}`}>
+                            ₱{bal.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Action */}
+                      <div className="pt-1 flex items-center justify-between">
+                        <div className="flex items-center gap-1 flex-wrap text-[10px] text-slate-500">
+                          {b.branch?.name && (
+                            <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                              {b.branch.name.replace("CDG Dental Clinic — ", "").replace("CDG Dental Clinic - ", "")}
+                            </span>
+                          )}
+                          {b.is_installment && (
+                            <span className="px-1.5 py-0.5 rounded font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                              {b.plan_type ? b.plan_type.toUpperCase() : "INSTALLMENT"}
+                            </span>
+                          )}
+                        </div>
+
+                        {bal > 0 ? (
+                          <button
+                            onClick={() =>
+                              setActivePaymentBill({
+                                id: b.id,
+                                branch_id: b.branch_id,
+                                invoice_number: b.invoice_number,
+                                patient_name: `${b.patient?.first_name} ${b.patient?.last_name}`,
+                                net_amount: Number(b.net_amount),
+                                total_paid: totalPaidOnBill,
+                                balance_due: bal,
+                                is_installment: b.is_installment,
+                                plan_type: b.plan_type,
+                                downpayment_amount: b.downpayment_amount ? Number(b.downpayment_amount) : undefined,
+                                installment_amount: b.installment_amount ? Number(b.installment_amount) : undefined,
+                                total_installments: b.total_installments ? Number(b.total_installments) : undefined,
+                                frequency: b.frequency,
+                                preferred_schedule: b.preferred_schedule,
+                                payments: b.payments,
+                              })
+                            }
+                            className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs active:scale-95 cursor-pointer flex items-center gap-1.5"
+                          >
+                            <QrCode className="w-3.5 h-3.5" />
+                            <span>Pay POS</span>
+                          </button>
+                        ) : (
+                          <span className="text-emerald-600 text-xs font-bold flex items-center gap-1">
+                            <CheckCircle2 className="w-4 h-4" /> Paid
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* ── DESKTOP & TABLET TABULAR VIEW ── */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">

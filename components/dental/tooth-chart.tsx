@@ -195,6 +195,7 @@ export function ToothChart({
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null);
   const [fdiMode, setFdiMode] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [selectedQuadrant, setSelectedQuadrant] = useState<"all" | "q1" | "q2" | "q3" | "q4">("all");
 
   // Map of tooth records by tooth number
   const recordsMap = new Map<number, ToothRecord>();
@@ -288,8 +289,116 @@ export function ToothChart({
         </div>
       </div>
 
-      {/* THE ODONTOGRAM CHART CONTAINER */}
-      <div className="overflow-x-auto pb-4">
+      {/* Mobile Arch & Quadrant Focus Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-teal-600 shrink-0" />
+          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+            Odontogram View:
+          </span>
+        </div>
+
+        {/* Quadrant Focus Tabs */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-hide text-xs">
+          {[
+            { id: "all", label: "Full Chart (All 32)" },
+            { id: "q1", label: "Q1: Upper Right" },
+            { id: "q2", label: "Q2: Upper Left" },
+            { id: "q3", label: "Q3: Lower Left" },
+            { id: "q4", label: "Q4: Lower Right" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setSelectedQuadrant(tab.id as any)}
+              className={`px-3 py-1.5 rounded-xl font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                selectedQuadrant === tab.id
+                  ? "bg-teal-600 text-white font-bold shadow-xs"
+                  : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Touch / Scroll Hint on Mobile when Full Chart is viewed */}
+      {selectedQuadrant === "all" && (
+        <div className="flex lg:hidden items-center justify-center gap-2 text-[11px] text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/60 py-1.5 px-3 rounded-xl border border-teal-200 dark:border-teal-900 font-medium">
+          <span>👈 Swipe horizontally to view all teeth or select a Quadrant above 👉</span>
+        </div>
+      )}
+
+      {/* FOCUSED QUADRANT VIEW (Responsive Card Grid for Phones & Tablets) */}
+      {selectedQuadrant !== "all" && (
+        <div className="p-4 sm:p-6 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border border-teal-200/80 dark:border-teal-900/60 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-teal-500" />
+              {selectedQuadrant === "q1" && "Quadrant 1: Upper Right (Maxillary Right)"}
+              {selectedQuadrant === "q2" && "Quadrant 2: Upper Left (Maxillary Left)"}
+              {selectedQuadrant === "q3" && "Quadrant 3: Lower Left (Mandibular Left)"}
+              {selectedQuadrant === "q4" && "Quadrant 4: Lower Right (Mandibular Right)"}
+            </h3>
+            <button
+              type="button"
+              onClick={() => setSelectedQuadrant("all")}
+              className="text-xs font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
+            >
+              Back to Full Arch
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3">
+            {(() => {
+              const qTeeth =
+                selectedQuadrant === "q1"
+                  ? [1, 2, 3, 4, 5, 6, 7, 8]
+                  : selectedQuadrant === "q2"
+                  ? [9, 10, 11, 12, 13, 14, 15, 16]
+                  : selectedQuadrant === "q3"
+                  ? [17, 18, 19, 20, 21, 22, 23, 24]
+                  : [25, 26, 27, 28, 29, 30, 31, 32];
+
+              return qTeeth.map((tNum) => {
+                const meta = TOOTH_METADATA[tNum];
+                const rec = recordsMap.get(tNum);
+                const st = rec?.status || "healthy";
+                const conf = TOOTH_STATUS_CONFIG[st];
+
+                return (
+                  <button
+                    key={tNum}
+                    type="button"
+                    onClick={() => handleToothClick(tNum)}
+                    className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-teal-500 dark:hover:border-teal-500 shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer"
+                  >
+                    <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 mb-1.5">
+                      {fdiMode ? meta.fdiNumber : `#${tNum}`}
+                    </span>
+                    <ToothGraphic
+                      type={meta.type}
+                      arch={meta.arch}
+                      status={st}
+                      surface={rec?.surface}
+                    />
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mt-2 line-clamp-1">
+                      {meta.name.split(" ")[0]}
+                    </span>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md mt-1 ${conf.badge}`}>
+                      {conf.label}
+                    </span>
+                  </button>
+                );
+              });
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* THE ODONTOGRAM CHART CONTAINER (Always accessible, full panoramic layout) */}
+      <div className={`overflow-x-auto pb-4 touch-manipulation ${selectedQuadrant !== "all" ? "hidden md:block opacity-60 hover:opacity-100 transition-opacity" : ""}`}>
         <div className="min-w-[780px] flex flex-col items-center space-y-6">
           {/* MAXILLARY / UPPER ARCH (Teeth 1 to 16) */}
           <div className="w-full bg-slate-50/70 dark:bg-slate-950/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 relative">

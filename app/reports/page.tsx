@@ -741,7 +741,7 @@ export default function ReportsPage() {
           </div>
         ) : (
           <div className="space-y-3 pt-2">
-            <div className="h-56 w-full flex items-end gap-2 pt-6 pb-2 border-b border-slate-100 dark:border-slate-800 overflow-x-auto">
+            <div className="h-56 w-full flex items-end gap-2 pt-6 pb-2 border-b border-slate-100 dark:border-slate-800 overflow-x-auto scrollbar-hide touch-manipulation">
               {chartData.points.map((pt, idx) => {
                 const heightPercent = Math.max(12, Math.round((pt.amount / chartData.maxAmount) * 100));
                 const isHovered = hoveredPoint?.label === pt.label;

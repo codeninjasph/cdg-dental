@@ -571,10 +571,10 @@ export default function DashboardPage() {
               </div>
 
               {/* Instant Chairside Operatory Actions */}
-              <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
+              <div className="grid grid-cols-1 sm:flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto shrink-0 pt-2 sm:pt-0">
                 <Link
                   href={`/patients/${inTreatmentAppt.patient?.id}`}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-bold shadow-xs transition-all"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-bold shadow-xs transition-all active:scale-98"
                 >
                   <Stethoscope className="w-4 h-4 text-purple-600" />
                   <span>Odontogram & Chart</span>
@@ -589,7 +589,7 @@ export default function DashboardPage() {
                       appointmentId: inTreatmentAppt.id,
                     })
                   }
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm hover:shadow-md shadow-purple-600/20 transition-all cursor-pointer"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm hover:shadow-md shadow-purple-600/20 transition-all cursor-pointer active:scale-98"
                 >
                   <Sparkles className="w-4 h-4" />
                   <span>Record Treatment</span>
@@ -597,7 +597,7 @@ export default function DashboardPage() {
 
                 <button
                   onClick={() => handleUpdateStatus(inTreatmentAppt.id, "completed")}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm hover:shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm hover:shadow-md shadow-emerald-600/20 transition-all cursor-pointer active:scale-98"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Complete Visit</span>

@@ -118,10 +118,10 @@ export default function HomePage() {
               </p>
 
               {/* Primary Call to Action Buttons */}
-              <div className="flex flex-wrap items-center gap-4 pt-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2 w-full sm:w-auto">
                 <button
                   onClick={() => handleOpenBooking()}
-                  className="px-7 py-4 rounded-2xl bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-bold text-base shadow-xl shadow-teal-500/25 hover:shadow-2xl hover:shadow-teal-500/35 transition-all flex items-center gap-3 active:scale-98 group"
+                  className="w-full sm:w-auto px-6 sm:px-7 py-3.5 sm:py-4 rounded-2xl bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-bold text-sm sm:text-base shadow-xl shadow-teal-500/25 hover:shadow-2xl hover:shadow-teal-500/35 transition-all flex items-center justify-center gap-3 active:scale-98 group cursor-pointer"
                 >
                   <Calendar className="w-5 h-5 text-teal-200 group-hover:scale-110 transition-transform" />
                   <span>Book Online Appointment</span>
@@ -130,7 +130,7 @@ export default function HomePage() {
 
                 <Link
                   href="/services"
-                  className="px-6 py-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 hover:border-teal-500 dark:hover:border-teal-500 bg-white/80 dark:bg-slate-900/80 text-slate-800 dark:text-slate-200 font-bold text-base hover:text-teal-600 dark:hover:text-teal-400 transition-all flex items-center gap-2"
+                  className="w-full sm:w-auto px-5 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 hover:border-teal-500 dark:hover:border-teal-500 bg-white/80 dark:bg-slate-900/80 text-slate-800 dark:text-slate-200 font-bold text-sm sm:text-base hover:text-teal-600 dark:hover:text-teal-400 transition-all flex items-center justify-center gap-2 text-center"
                 >
                   <span>Explore Our 5 Specialties</span>
                 </Link>

@@ -458,23 +458,24 @@ export function PublicBookingModal({
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
           {/* Modal Top Header */}
-          <div className="bg-gradient-to-r from-teal-600 to-cyan-600 px-6 py-4 text-white flex items-center justify-between">
+          <div className="bg-gradient-to-r from-teal-600 to-cyan-600 px-4 sm:px-6 py-3.5 sm:py-4 text-white flex items-center justify-between flex-shrink-0">
             <div>
               <div className="flex items-center gap-2">
                 <span className="bg-white/20 text-white text-[11px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                   Direct Clinic Booking
                 </span>
-                <span className="text-teal-100 text-xs flex items-center gap-1">
+                <span className="text-teal-100 text-xs hidden sm:flex items-center gap-1">
                   <ShieldCheck className="w-3.5 h-3.5" /> Verified Live Schedule
                 </span>
               </div>
-              <h2 className="text-xl font-bold mt-1 text-white">
+              <h2 className="text-lg sm:text-xl font-bold mt-1 text-white">
                 Book Your Dental Visit at CDG
               </h2>
             </div>
             <button
               onClick={onClose}
-              className="text-white/80 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+              aria-label="Close booking modal"
+              className="text-white/80 hover:text-white p-2 rounded-xl hover:bg-white/10 transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               <X className="w-5 h-5" />
             </button>
@@ -482,8 +483,8 @@ export function PublicBookingModal({
 
           {/* Progress Wizard Steps (1 to 4) */}
           {step < 5 && (
-            <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-3 border-b border-slate-200 dark:border-slate-800">
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+            <div className="bg-slate-50 dark:bg-slate-800/50 px-3 sm:px-6 py-2.5 sm:py-3 border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-hide flex-shrink-0">
+              <div className="flex items-center justify-between min-w-[320px] text-xs font-semibold text-slate-500">
                 <div
                   className={`flex items-center gap-1.5 ${
                     step >= 1 ? "text-teal-600 dark:text-teal-400 font-bold" : ""
@@ -496,9 +497,10 @@ export function PublicBookingModal({
                   >
                     1
                   </span>
-                  <span>Branch & Service</span>
+                  <span className="hidden sm:inline">Branch & Service</span>
+                  <span className="sm:hidden">Branch</span>
                 </div>
-                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                 <div
                   className={`flex items-center gap-1.5 ${
                     step >= 2 ? "text-teal-600 dark:text-teal-400 font-bold" : ""
@@ -513,7 +515,7 @@ export function PublicBookingModal({
                   </span>
                   <span>Dentist</span>
                 </div>
-                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                 <div
                   className={`flex items-center gap-1.5 ${
                     step >= 3 ? "text-teal-600 dark:text-teal-400 font-bold" : ""
@@ -526,9 +528,10 @@ export function PublicBookingModal({
                   >
                     3
                   </span>
-                  <span>Date & Slot</span>
+                  <span className="hidden sm:inline">Date & Slot</span>
+                  <span className="sm:hidden">Date</span>
                 </div>
-                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                 <div
                   className={`flex items-center gap-1.5 ${
                     step >= 4 ? "text-teal-600 dark:text-teal-400 font-bold" : ""
@@ -541,14 +544,15 @@ export function PublicBookingModal({
                   >
                     4
                   </span>
-                  <span>Patient Info</span>
+                  <span className="hidden sm:inline">Patient Info</span>
+                  <span className="sm:hidden">Info</span>
                 </div>
               </div>
             </div>
           )}
 
           {/* Modal Scrollable Body */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             {errorMessage && (
               <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0 text-red-500" />
@@ -1143,14 +1147,14 @@ export function PublicBookingModal({
 
           {/* Modal Bottom Footer Navigation (Steps 1 to 4) */}
           {step < 5 && (
-            <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div className="bg-slate-50 dark:bg-slate-800/50 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between flex-shrink-0 gap-3">
               {step > 1 ? (
                 <button
                   type="button"
                   onClick={() => setStep((s) => (s - 1) as any)}
-                  className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer min-h-[44px]"
                 >
-                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <ChevronLeft className="w-4 h-4" />
                   Back
                 </button>
               ) : (
@@ -1176,22 +1180,22 @@ export function PublicBookingModal({
                     setErrorMessage(null);
                     setStep((s) => (s + 1) as any);
                   }}
-                  className="px-5 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 transition-all flex items-center gap-1.5 shadow-md shadow-teal-500/20 cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-teal-600 text-white text-xs sm:text-sm font-bold hover:bg-teal-700 transition-all flex items-center gap-1.5 shadow-md shadow-teal-500/20 cursor-pointer min-h-[44px]"
                 >
                   Next Step
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               ) : (
                 <button
                   type="submit"
                   form="public-booking-form"
                   disabled={isSubmitting}
-                  className="px-6 py-2 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 text-white text-xs font-bold hover:from-teal-700 hover:to-cyan-700 transition-all flex items-center gap-2 shadow-lg shadow-teal-500/25 disabled:opacity-50 cursor-pointer"
+                  className="px-5 sm:px-6 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 text-white text-xs sm:text-sm font-bold hover:from-teal-700 hover:to-cyan-700 transition-all flex items-center gap-2 shadow-lg shadow-teal-500/25 disabled:opacity-50 cursor-pointer min-h-[44px]"
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Confirming Appointment...</span>
+                      <span>Confirming...</span>
                     </>
                   ) : (
                     <>

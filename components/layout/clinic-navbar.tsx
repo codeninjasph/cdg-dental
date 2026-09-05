@@ -213,13 +213,13 @@ export function ClinicNavbar() {
             {/* ── Controls ── */}
             <div className="flex items-center gap-1.5 lg:gap-2 shrink-0">
 
-              {/* Branch Display: Dropdown Switcher for Admin, Non-interactive indicator for Secretary */}
+              {/* Branch Display: Accessible on Mobile, Tablet & Desktop */}
               {branches.length > 0 && (
-                <div className="hidden lg:block relative" ref={branchRef}>
+                <div className="relative" ref={branchRef}>
                   {currentRole === "secretary" || !isAdmin ? (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 lg:py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs font-medium text-slate-300">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 lg:px-3 lg:py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs font-medium text-slate-300">
                       <Building2 className="w-3.5 h-3.5 text-teal-400 shrink-0" />
-                      <span className="max-w-[130px] xl:max-w-[170px] truncate text-xs">
+                      <span className="max-w-[70px] sm:max-w-[120px] xl:max-w-[170px] truncate text-[11px] sm:text-xs">
                         {activeBranch?.name?.split("—")[1]?.trim() ??
                           activeBranch?.name ??
                           "Assigned Branch"}
@@ -232,26 +232,29 @@ export function ClinicNavbar() {
                           setBranchOpen((o) => !o);
                           setRoleOpen(false);
                         }}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 lg:px-3 lg:py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-xs font-medium text-slate-300 hover:text-white transition-all duration-200 cursor-pointer"
+                        aria-label="Select Clinic Branch"
+                        aria-expanded={branchOpen}
+                        aria-haspopup="true"
+                        className="flex items-center gap-1.5 px-2 py-1.5 sm:px-2.5 lg:px-3 lg:py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-xs font-medium text-slate-300 hover:text-white transition-all duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-teal-400"
                       >
-                        <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                        <span className="max-w-[85px] xl:max-w-[120px] truncate text-xs">
+                        <Building2 className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                        <span className="max-w-[65px] sm:max-w-[100px] xl:max-w-[130px] truncate text-[11px] sm:text-xs">
                           {activeBranch?.name?.split("—")[1]?.trim() ??
                             activeBranch?.name ??
-                            "Select Branch"}
+                            "Branch"}
                         </span>
                         <ChevronDown
-                          className={`w-3 h-3 text-slate-500 transition-transform duration-200 shrink-0 ${
+                          className={`w-3 h-3 text-slate-400 transition-transform duration-200 shrink-0 ${
                             branchOpen ? "rotate-180" : ""
                           }`}
                         />
                       </button>
 
                       {branchOpen && (
-                        <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-slate-900 border border-white/[0.08] shadow-2xl shadow-black/60 backdrop-blur-xl overflow-hidden z-50">
-                          <div className="px-3 py-2 border-b border-white/[0.06]">
-                            <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-                              Select Branch
+                        <div className="absolute right-0 top-full mt-2 w-64 max-w-[90vw] rounded-2xl bg-slate-900 border border-white/[0.08] shadow-2xl shadow-black/80 backdrop-blur-xl overflow-hidden z-50 animate-in fade-in zoom-in-95">
+                          <div className="px-3.5 py-2.5 border-b border-white/[0.06] bg-slate-950/50">
+                            <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                              Active Clinic Branch
                             </p>
                           </div>
                           {branches.map((b) => (
@@ -261,27 +264,27 @@ export function ClinicNavbar() {
                                 setActiveBranch(b);
                                 setBranchOpen(false);
                               }}
-                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium transition-colors text-left cursor-pointer ${
+                              className={`w-full flex items-center gap-2.5 px-3.5 py-3 text-xs font-medium transition-colors text-left cursor-pointer ${
                                 activeBranch?.id === b.id
-                                  ? "bg-teal-500/15 text-teal-300"
-                                  : "text-slate-400 hover:bg-white/[0.05] hover:text-slate-200"
+                                  ? "bg-teal-500/15 text-teal-300 font-bold"
+                                  : "text-slate-300 hover:bg-white/[0.05] hover:text-white"
                               }`}
                             >
                               <span
-                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                className={`w-2 h-2 rounded-full shrink-0 ${
                                   activeBranch?.id === b.id
-                                    ? "bg-teal-400"
+                                    ? "bg-teal-400 shadow-sm shadow-teal-400"
                                     : "bg-slate-600"
                                 }`}
                               />
-                              {b.name}
+                              <span className="truncate">{b.name}</span>
                             </button>
                           ))}
-                          <div className="p-2 border-t border-white/[0.06] bg-slate-950/40 space-y-1">
+                          <div className="p-2 border-t border-white/[0.06] bg-slate-950/60 space-y-1">
                             <Link
                               href="/admin/branches"
                               onClick={() => setBranchOpen(false)}
-                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 transition-colors cursor-pointer"
+                              className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-bold text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 transition-colors cursor-pointer"
                             >
                               <Building2 className="w-3.5 h-3.5" />
                               <span>Manage Clinic Branches</span>
@@ -289,7 +292,7 @@ export function ClinicNavbar() {
                             <Link
                               href="/admin/hours"
                               onClick={() => setBranchOpen(false)}
-                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors cursor-pointer"
+                              className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-bold text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors cursor-pointer"
                             >
                               <Clock className="w-3.5 h-3.5" />
                               <span>Dental Hours & Schedules</span>
@@ -482,7 +485,7 @@ export function ClinicNavbar() {
         </div>
 
         {/* ── Mobile Nav Pills ── */}
-        <div className="flex lg:hidden items-center gap-1 px-4 pb-2.5 overflow-x-auto scrollbar-hide">
+        <div className="flex lg:hidden items-center gap-1.5 px-3 sm:px-4 pb-2.5 overflow-x-auto scrollbar-hide touch-manipulation">
           {navLinks.map((link) => {
             const Icon = link.icon;
             const isActive = isLinkActive(link);
@@ -490,14 +493,15 @@ export function ClinicNavbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold shrink-0 transition-all ${
+                aria-current={isActive ? "page" : undefined}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold shrink-0 transition-all active:scale-95 ${
                   isActive
                     ? "bg-teal-500/20 text-teal-300 ring-1 ring-teal-400/30"
-                    : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.06]"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
-                {link.label}
+                <Icon className="w-3.5 h-3.5 text-teal-400" />
+                <span>{link.label}</span>
               </Link>
             );
           })}
@@ -506,6 +510,62 @@ export function ClinicNavbar() {
 
       {/* Slim neon underline accent */}
       <div className="h-px bg-gradient-to-r from-transparent via-teal-500/40 to-transparent" />
+
+      {/* ── Ergonomic Mobile Bottom Navigation Bar (Phones & Small Tablets) ── */}
+      <nav
+        aria-label="Mobile Navigation"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-xl border-t border-white/[0.08] lg:hidden pb-safe shadow-2xl shadow-black"
+      >
+        <div className="grid grid-flow-col auto-cols-fr items-center justify-around h-16 px-1">
+          {navLinks.slice(0, 4).map((link) => {
+            const Icon = link.icon;
+            const isActive = isLinkActive(link);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={isActive ? "page" : undefined}
+                className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all active:scale-90 ${
+                  isActive
+                    ? "text-teal-400 font-bold"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <div
+                  className={`p-1.5 rounded-xl transition-all ${
+                    isActive ? "bg-teal-500/20 shadow-xs" : ""
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] tracking-tight truncate max-w-[70px] mt-0.5">
+                  {link.shortLabel || link.label.split(" ")[0]}
+                </span>
+              </Link>
+            );
+          })}
+
+          {/* 5th Tab: Quick Role & Admin Hub */}
+          <button
+            onClick={() => {
+              if (isAdmin) {
+                setRoleOpen((o) => !o);
+              } else {
+                window.location.href = currentRole === "secretary" ? "/secretary" : "/portal";
+              }
+            }}
+            aria-label="Staff Profile & Controls"
+            className="flex flex-col items-center justify-center py-1 px-1 rounded-xl text-slate-400 hover:text-slate-200 active:scale-90"
+          >
+            <div className="p-1.5 rounded-xl bg-white/[0.05]">
+              <RoleIcon className={`w-5 h-5 ${role.color}`} />
+            </div>
+            <span className="text-[10px] tracking-tight truncate max-w-[70px] mt-0.5">
+              {isAdmin ? "Admin" : role.label}
+            </span>
+          </button>
+        </div>
+      </nav>
     </header>
   );
 }

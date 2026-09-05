@@ -1058,7 +1058,7 @@ function SecretaryPortalContent() {
         </div>
       </div>
 
-      <div className="border-b border-slate-200 dark:border-slate-800 flex items-center gap-1 sm:gap-4 overflow-x-auto">
+      <div className="border-b border-slate-200 dark:border-slate-800 flex items-center gap-1 sm:gap-4 overflow-x-auto scrollbar-hide touch-manipulation pb-1">
         <button
           onClick={() => handleTabChange("queue")}
           className={`pb-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
@@ -1347,7 +1347,7 @@ function SecretaryPortalContent() {
                     </div>
 
                     {/* 1-click status actions */}
-                    <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center flex-wrap">
+                    <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto justify-end sm:justify-start flex-wrap pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
                       {appt.status === "scheduled" && (
                         <button
                           onClick={() => handleOpenConfirmReschedule(appt)}
