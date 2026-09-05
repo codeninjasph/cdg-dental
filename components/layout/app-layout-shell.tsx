@@ -31,7 +31,7 @@ export function AppLayoutShell({ children }: { children: React.ReactNode }) {
         <Suspense fallback={<div className="h-[60px] bg-slate-950/95" />}>
           <ClinicNavbar />
         </Suspense>
-        <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6">
           {children}
         </main>
       </div>

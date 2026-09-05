@@ -139,7 +139,7 @@ export default function AdminDentistsPage() {
   ).size;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="space-y-6 animate-in fade-in duration-300">
       {/* ── Admin Navigation Tabs ── */}
       <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-900 rounded-2xl w-fit border border-slate-200/80 dark:border-slate-800">
         <Link

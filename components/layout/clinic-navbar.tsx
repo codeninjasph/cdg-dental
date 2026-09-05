@@ -140,7 +140,7 @@ export function ClinicNavbar() {
     <header className="sticky top-0 z-40 w-full max-w-full overflow-x-clip">
       {/* Main bar */}
       <div className="bg-slate-950/95 backdrop-blur-xl border-b border-white/[0.06] shadow-2xl shadow-black/40">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
           <div className="flex items-center justify-between h-[60px] gap-2 lg:gap-3">
 
             {/* ── Logo ── */}
