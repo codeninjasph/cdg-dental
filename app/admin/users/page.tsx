@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useClinic } from "@/context/clinic-context";
 import { StaffUserRecord, MASTER_ADMIN_ID, MASTER_ADMIN_EMAIL } from "@/types/admin";
 import { InviteStaffModal } from "@/components/admin/invite-staff-modal";
+import { EditStaffBranchModal } from "@/components/admin/edit-staff-branch-modal";
 import {
   Users,
   UserPlus,
@@ -26,6 +27,7 @@ import {
   Loader2,
   AlertTriangle,
   Sparkles,
+  Pencil,
 } from "lucide-react";
 
 export default function AdminUsersPage() {
@@ -38,6 +40,7 @@ export default function AdminUsersPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [editingStaffUser, setEditingStaffUser] = useState<StaffUserRecord | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null);
 
@@ -481,10 +484,24 @@ export default function AdminUsersPage() {
 
                       {/* Branch */}
                       <td className="py-4 px-4 text-slate-600 dark:text-slate-300">
-                        <div className="flex items-center gap-1.5">
-                          <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{user.branch_name || "All Branches"}</span>
-                        </div>
+                        {isMasterAdmin ? (
+                          <div className="flex items-center gap-1.5 text-slate-400">
+                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{user.branch_name || "All Branches"}</span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setEditingStaffUser(user)}
+                            title="Click to edit branch assignment"
+                            className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-slate-50/70 hover:bg-teal-50/80 dark:bg-slate-950/40 dark:hover:bg-teal-950/40 hover:border-teal-300 dark:hover:border-teal-800 text-slate-700 dark:text-slate-300 hover:text-teal-700 dark:hover:text-teal-300 transition-all cursor-pointer text-left"
+                          >
+                            <Building2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-teal-600 dark:group-hover:text-teal-400 shrink-0" />
+                            <span className="font-medium text-xs truncate max-w-[140px] sm:max-w-[180px]">
+                              {user.branch_name || "All Branches"}
+                            </span>
+                            <Pencil className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-teal-600 dark:text-teal-400 ml-0.5 shrink-0 transition-opacity" />
+                          </button>
+                        )}
                       </td>
 
                       {/* Status */}
@@ -522,6 +539,16 @@ export default function AdminUsersPage() {
                                   )}
                                 </button>
                               )}
+
+                              {/* Edit Branch Assignment button */}
+                              <button
+                                onClick={() => setEditingStaffUser(user)}
+                                title="Edit branch assignment"
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 text-xs font-semibold transition-colors cursor-pointer"
+                              >
+                                <Building2 className="w-3 h-3" />
+                                <span>Branch</span>
+                              </button>
 
                               {/* Revoke or Restore button */}
                               {user.status === "revoked" ? (
@@ -569,6 +596,14 @@ export default function AdminUsersPage() {
       <InviteStaffModal
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}
+        onSuccess={fetchStaff}
+      />
+
+      {/* ── Edit Staff Branch Assignment Modal ── */}
+      <EditStaffBranchModal
+        isOpen={Boolean(editingStaffUser)}
+        onClose={() => setEditingStaffUser(null)}
+        staffUser={editingStaffUser}
         onSuccess={fetchStaff}
       />
     </div>

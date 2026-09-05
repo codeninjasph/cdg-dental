@@ -364,6 +364,118 @@ export async function deleteStaffUser(userId: string): Promise<void> {
   await db.query("DELETE FROM auth.users WHERE id = $1::uuid", [userId]);
 }
 
+/**
+ * Update staff branch assignment
+ */
+export async function updateStaffBranch(
+  userId: string,
+  branchId: string | null
+): Promise<StaffUserRecord> {
+  const db = getPool();
+
+  // 1. If branchId is provided, verify it exists and is active
+  if (branchId) {
+    const branchCheck = await db.query(
+      "SELECT id, name FROM public.branches WHERE id = $1::uuid",
+      [branchId]
+    );
+    if (branchCheck.rows.length === 0) {
+      throw new Error("Specified clinic branch does not exist.");
+    }
+  }
+
+  // 2. Update public.profiles
+  const profileRes = await db.query(
+    `UPDATE public.profiles
+     SET branch_id = $1::uuid
+     WHERE id = $2::uuid
+     RETURNING id, full_name, role, branch_id, phone, is_active, created_at;`,
+    [branchId || null, userId]
+  );
+
+  if (profileRes.rows.length === 0) {
+    throw new Error("Staff user profile not found.");
+  }
+
+  // 3. Sync metadata in auth.users
+  try {
+    if (branchId) {
+      await db.query(
+        `UPDATE auth.users
+         SET raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object('branch_id', $1::text),
+             updated_at = now()
+         WHERE id = $2::uuid;`,
+        [branchId, userId]
+      );
+    } else {
+      await db.query(
+        `UPDATE auth.users
+         SET raw_user_meta_data = (COALESCE(raw_user_meta_data, '{}'::jsonb) - 'branch_id') || jsonb_build_object('branch_id', null),
+             updated_at = now()
+         WHERE id = $1::uuid;`,
+        [userId]
+      );
+    }
+  } catch (e) {
+    console.warn("Could not sync auth.users metadata for branch:", e);
+  }
+
+  // 4. Return updated staff record
+  const updatedUserQuery = `
+    SELECT 
+      p.id,
+      p.full_name,
+      p.role,
+      p.branch_id,
+      p.phone,
+      p.is_active,
+      p.created_at,
+      u.email,
+      u.banned_until,
+      u.email_confirmed_at,
+      u.last_sign_in_at,
+      u.invited_at,
+      u.confirmation_token,
+      b.name AS branch_name
+    FROM public.profiles p
+    LEFT JOIN auth.users u ON p.id = u.id
+    LEFT JOIN public.branches b ON p.branch_id = b.id
+    WHERE p.id = $1::uuid;
+  `;
+
+  const { rows } = await db.query(updatedUserQuery, [userId]);
+  if (rows.length === 0) {
+    throw new Error("Staff user profile not found after update.");
+  }
+
+  const r = rows[0];
+  const isBanned = r.banned_until && new Date(r.banned_until) > new Date();
+  const isPending = !r.email_confirmed_at && (r.invited_at || r.confirmation_token);
+
+  let status: "active" | "revoked" | "pending_invite" = "active";
+  if (r.is_active === false || isBanned) {
+    status = "revoked";
+  } else if (isPending) {
+    status = "pending_invite";
+  }
+
+  return {
+    id: r.id,
+    email: r.email || null,
+    full_name: r.full_name,
+    role: normalizeRole(r.role),
+    branch_id: r.branch_id || null,
+    branch_name: r.branch_name || null,
+    phone: r.phone || null,
+    is_active: r.is_active !== false && !isBanned,
+    status,
+    created_at: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+    last_sign_in_at: r.last_sign_in_at ? new Date(r.last_sign_in_at).toISOString() : null,
+    invited_at: r.invited_at ? new Date(r.invited_at).toISOString() : null,
+    invite_token: r.confirmation_token || null,
+  };
+}
+
 export interface BranchWithStats {
   id: string;
   name: string;
