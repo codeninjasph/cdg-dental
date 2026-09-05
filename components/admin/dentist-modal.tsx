@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useClinic } from "@/context/clinic-context";
 import { CDO_BRANCHES_DATA } from "@/lib/cdo-clinic-data";
+import { isBranchMatch } from "@/lib/duty-schedule";
 import {
   X,
   Sparkles,
@@ -574,109 +575,132 @@ export function DentistModal({
                 </button>
               </div>
 
-              <div className="space-y-2">
-                {clinicDays.map((row, idx) => (
-                  <div
-                    key={idx}
-                    className="grid grid-cols-1 sm:grid-cols-12 gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 items-center"
-                  >
-                    <div className="sm:col-span-5 space-y-1">
-                      <select
-                        value={
-                          dynamicBranches.some(
-                            (b) =>
-                              b.shortName.toLowerCase() === row.branchName.toLowerCase() ||
-                              b.name.toLowerCase() === row.branchName.toLowerCase()
-                          )
-                            ? dynamicBranches.find(
-                                (b) =>
-                                  b.shortName.toLowerCase() === row.branchName.toLowerCase() ||
-                                  b.name.toLowerCase() === row.branchName.toLowerCase()
-                              )?.shortName
-                            : row.branchName
-                            ? "__custom__"
-                            : ""
-                        }
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === "__custom__") {
-                            handleScheduleChange(
-                              idx,
-                              "branchName",
-                              dynamicBranches.some(
-                                (b) => b.shortName.toLowerCase() === row.branchName.toLowerCase()
-                              )
-                                ? ""
-                                : row.branchName
-                            );
-                          } else {
-                            handleScheduleChange(idx, "branchName", val);
-                          }
-                        }}
-                        className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                      >
-                        <option value="" disabled>
-                          Select Clinic Branch...
-                        </option>
-                        {dynamicBranches.map((b) => (
-                          <option key={b.id || b.shortName} value={b.shortName}>
-                            {b.shortName}
-                          </option>
-                        ))}
-                        <option value="__custom__">✏️ Custom / Other Branch...</option>
-                      </select>
+              <div className="space-y-3">
+                {clinicDays.map((row, idx) => {
+                  const matchedBranch = dynamicBranches.find((b) => isBranchMatch(row.branchName, b));
+                  const isExplicitCustom = !matchedBranch && Boolean(row.branchName);
+                  const currentSelectValue = matchedBranch ? matchedBranch.shortName : (isExplicitCustom ? "__custom__" : "");
 
-                      {(!dynamicBranches.some(
-                        (b) =>
-                          b.shortName.toLowerCase() === row.branchName.toLowerCase() ||
-                          b.name.toLowerCase() === row.branchName.toLowerCase()
-                      ) ||
-                        !row.branchName) && (
-                        <input
-                          type="text"
-                          value={row.branchName}
-                          onChange={(e) =>
-                            handleScheduleChange(idx, "branchName", e.target.value)
-                          }
-                          placeholder="Type custom branch name..."
-                          className="w-full px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-teal-400/50 dark:border-teal-500/50 text-[11px] text-teal-800 dark:text-teal-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                        />
-                      )}
+                  return (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-2.5"
+                    >
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                        {/* Branch Dropdown */}
+                        <div className="sm:col-span-5 space-y-1">
+                          <select
+                            value={currentSelectValue}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "__custom__") {
+                                handleScheduleChange(idx, "branchName", "");
+                              } else {
+                                handleScheduleChange(idx, "branchName", val);
+                              }
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                          >
+                            <option value="" disabled>
+                              Select Clinic Branch...
+                            </option>
+                            {dynamicBranches.map((b) => (
+                              <option key={b.id || b.shortName} value={b.shortName}>
+                                {b.shortName}
+                              </option>
+                            ))}
+                            <option value="__custom__">✏️ Custom / Other Branch...</option>
+                          </select>
+
+                          {(currentSelectValue === "__custom__" || (!matchedBranch && Boolean(row.branchName))) && (
+                            <input
+                              type="text"
+                              value={row.branchName}
+                              onChange={(e) =>
+                                handleScheduleChange(idx, "branchName", e.target.value)
+                              }
+                              placeholder="Type custom branch name..."
+                              className="w-full px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-teal-400/50 dark:border-teal-500/50 text-[11px] text-teal-800 dark:text-teal-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                            />
+                          )}
+                        </div>
+
+                        {/* Days Input */}
+                        <div className="sm:col-span-3">
+                          <input
+                            type="text"
+                            value={row.days}
+                            onChange={(e) =>
+                              handleScheduleChange(idx, "days", e.target.value)
+                            }
+                            placeholder="Days (e.g. Mon, Wed, Fri)"
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+                          />
+                        </div>
+
+                        {/* Hours Input */}
+                        <div className="sm:col-span-3">
+                          <input
+                            type="text"
+                            value={row.hours}
+                            onChange={(e) =>
+                              handleScheduleChange(idx, "hours", e.target.value)
+                            }
+                            placeholder="Hours (e.g. 9am - 5pm)"
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+                          />
+                        </div>
+
+                        {/* Delete Row Button */}
+                        <div className="sm:col-span-1 flex justify-center">
+                          <button
+                            type="button"
+                            disabled={clinicDays.length <= 1}
+                            onClick={() => handleRemoveScheduleRow(idx)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors cursor-pointer"
+                            title="Remove schedule entry"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Quick Presets for Days & Hours */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-200/50 dark:border-slate-700/50 text-[10px]">
+                        <span className="text-slate-400 font-medium mr-1">Days:</span>
+                        {["Mon, Wed, Fri", "Tue, Thu, Sat", "Mon – Fri", "Mon – Sat"].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => handleScheduleChange(idx, "days", preset)}
+                            className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                              row.days === preset
+                                ? "bg-teal-600 text-white font-bold"
+                                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 border border-slate-200 dark:border-slate-700"
+                            }`}
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                        <span className="text-slate-400 font-medium ml-2 mr-1">Hours:</span>
+                        {["9:00 AM – 5:00 PM", "9:00 AM – 6:00 PM", "10:00 AM – 8:00 PM"].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => handleScheduleChange(idx, "hours", preset)}
+                            className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                              row.hours === preset
+                                ? "bg-teal-600 text-white font-bold"
+                                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 border border-slate-200 dark:border-slate-700"
+                            }`}
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="sm:col-span-3">
-                      <input
-                        type="text"
-                        value={row.days}
-                        onChange={(e) =>
-                          handleScheduleChange(idx, "days", e.target.value)
-                        }
-                        placeholder="Days (e.g. Mon, Wed, Fri)"
-                        className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"
-                      />
-                    </div>
-                    <div className="sm:col-span-3">
-                      <input
-                        type="text"
-                        value={row.hours}
-                        onChange={(e) =>
-                          handleScheduleChange(idx, "hours", e.target.value)
-                        }
-                        placeholder="Hours (e.g. 9am - 5pm)"
-                        className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"
-                      />
-                    </div>
-                    <div className="sm:col-span-1 flex justify-center">
-                      <button
-                        type="button"
-                        disabled={clinicDays.length <= 1}
-                        onClick={() => handleRemoveScheduleRow(idx)}
-                        className="p-1 rounded text-slate-400 hover:text-rose-600 disabled:opacity-30 disabled:hover:text-slate-400 cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 import { CDO_SERVICES_DATA } from "@/lib/cdo-clinic-data";
 import { listDentists } from "./admin";
+import { getDentistDutyForDate } from "@/lib/duty-schedule";
 
 let pool: Pool | null = null;
 
@@ -223,12 +224,20 @@ export async function createPublicBooking(
   const activeDentists = await listDentists(true);
 
   if (!dentistId || dentistId === "any") {
-    // Pick the first available active dentist
-    if (activeDentists.length === 0) {
+    // Prioritize an active dentist who is scheduled on duty at this branch and date
+    const onDutyMatch = activeDentists.find((d) => {
+      const duty = getDentistDutyForDate(d, branch.name, input.date);
+      return duty.isOnDuty;
+    });
+
+    if (onDutyMatch) {
+      dentistId = onDutyMatch.id;
+    } else if (activeDentists.length > 0) {
+      // Fallback to first active doctor if none explicitly rostered
+      dentistId = activeDentists[0].id;
+    } else {
       // Fallback to default dentist ID if table empty
       dentistId = "00000000-0000-0000-0000-000000000010";
-    } else {
-      dentistId = activeDentists[0].id;
     }
   }
 

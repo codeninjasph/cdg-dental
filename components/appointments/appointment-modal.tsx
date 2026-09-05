@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Patient, Profile, Branch, Appointment } from "@/types/dental";
 import { createClient } from "@/lib/supabase/client";
 import { useClinic } from "@/context/clinic-context";
@@ -13,8 +13,10 @@ import {
   FileText,
   MapPin,
   CalendarClock,
+  CheckCircle2,
 } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { getDentistDutyForDate, DentistDutyStatus } from "@/lib/duty-schedule";
 
 interface AppointmentModalProps {
   isOpen: boolean;
@@ -46,18 +48,85 @@ export function AppointmentModal({
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [dentistProfiles, setDentistProfiles] = useState<any[]>([]);
 
   const supabase = createClient();
   const dentists = staffList.filter((s) => s.role === "dentist" || s.role === "admin");
 
+  // Load dentist schedules
   useEffect(() => {
-    if (dentists.length > 0 && !dentistId) {
-      setDentistId(dentists[0].id);
-    }
+    if (!isOpen) return;
+    let isMounted = true;
+    fetch("/api/dentists")
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data.dentists) {
+          setDentistProfiles(data.dentists);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
+
+  const selectedBranch = useMemo(() => {
+    return branches.find((b) => b.id === branchId) || activeBranch || branches[0];
+  }, [branches, branchId, activeBranch]);
+
+  // Compute real-time duty status for all dentists on selected branch and date
+  const dentistDutyList = useMemo(() => {
+    if (!selectedBranch || !date) return [];
+
+    return dentists.map((d) => {
+      const richProfile = dentistProfiles.find(
+        (dp) =>
+          dp.id === d.id ||
+          (dp.name && d.full_name && dp.name.toLowerCase().includes(d.full_name.toLowerCase())) ||
+          (d.full_name && dp.name && d.full_name.toLowerCase().includes(dp.name.toLowerCase()))
+      );
+
+      const scheduleRecord = richProfile || {
+        id: d.id,
+        name: d.full_name,
+        clinic_days: (d as any).clinic_days || [],
+      };
+
+      const duty = getDentistDutyForDate(scheduleRecord, selectedBranch, date);
+      return {
+        profile: d,
+        duty,
+      };
+    });
+  }, [dentists, dentistProfiles, selectedBranch, date]);
+
+  // Selected dentist duty object
+  const selectedDuty = useMemo(() => {
+    return dentistDutyList.find((item) => item.profile.id === dentistId)?.duty;
+  }, [dentistDutyList, dentistId]);
+
+  // Initialize and auto-select on-duty dentist when available
+  useEffect(() => {
     if (activeBranch && !branchId) {
       setBranchId(activeBranch.id);
     }
-  }, [dentists, activeBranch]);
+  }, [activeBranch, branchId]);
+
+  useEffect(() => {
+    if (dentistDutyList.length > 0) {
+      const currentItem = dentistDutyList.find((item) => item.profile.id === dentistId);
+      if (!currentItem || !currentItem.duty.isOnDuty) {
+        const firstOnDuty = dentistDutyList.find((item) => item.duty.isOnDuty);
+        if (firstOnDuty && !dentistId) {
+          setDentistId(firstOnDuty.profile.id);
+        } else if (!dentistId && dentists.length > 0) {
+          setDentistId(dentists[0].id);
+        }
+      }
+    } else if (dentists.length > 0 && !dentistId) {
+      setDentistId(dentists[0].id);
+    }
+  }, [dentistDutyList, dentistId, dentists]);
 
   useEffect(() => {
     async function loadPatients() {
@@ -183,26 +252,8 @@ export function AppointmentModal({
             </select>
           </div>
 
-          {/* Dentist & Branch Selection */}
+          {/* Branch Location & Date Selection */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                Attending Dentist *
-              </label>
-              <select
-                required
-                value={dentistId}
-                onChange={(e) => setDentistId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-              >
-                {dentists.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.full_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
                 Branch Location *
@@ -220,22 +271,102 @@ export function AppointmentModal({
                 ))}
               </select>
             </div>
-          </div>
 
-          {/* Date, Time & Duration */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                Date *
+                Appointment Date *
               </label>
               <input
                 type="date"
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
               />
             </div>
+          </div>
+
+          {/* Attending Dentist Selection (with Live Duty Status) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Attending Dentist *
+              </label>
+              {selectedDuty && (
+                <span
+                  className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
+                    selectedDuty.isOnDuty
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300"
+                      : "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300"
+                  }`}
+                >
+                  {selectedDuty.isOnDuty ? "● On Duty" : "○ Off Duty"}
+                </span>
+              )}
+            </div>
+
+            <select
+              required
+              value={dentistId}
+              onChange={(e) => setDentistId(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+            >
+              {dentistDutyList.length > 0 ? (
+                <>
+                  {/* On Duty Dentists First */}
+                  {dentistDutyList
+                    .filter((item) => item.duty.isOnDuty)
+                    .map(({ profile, duty }) => (
+                      <option key={profile.id} value={profile.id}>
+                        ● {profile.full_name} — On Duty ({duty.workingHours})
+                      </option>
+                    ))}
+                  {/* Off Duty Dentists */}
+                  {dentistDutyList
+                    .filter((item) => !item.duty.isOnDuty)
+                    .map(({ profile, duty }) => (
+                      <option key={profile.id} value={profile.id}>
+                        ○ {profile.full_name} — {duty.dutyStatus === "off_duty_other_branch" ? `On Duty at ${duty.dutyBranch}` : "Off Duty Today"}
+                      </option>
+                    ))}
+                </>
+              ) : (
+                dentists.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.full_name}
+                  </option>
+                ))
+              )}
+            </select>
+
+            {/* Dynamic Duty Notice Card */}
+            {selectedDuty && !selectedDuty.isOnDuty && (
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-200 text-xs flex items-start gap-2 animate-in fade-in duration-150">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block font-bold">Doctor Duty Schedule Notice</strong>
+                  <span>
+                    {selectedDuty.dentistName} is {selectedDuty.reason.toLowerCase()}. You may still proceed with an administrative override if approved.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {selectedDuty && selectedDuty.isOnDuty && (
+              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-300 text-xs flex items-center justify-between animate-in fade-in duration-150">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-semibold">{selectedDuty.dentistName} is scheduled on duty today</span>
+                </div>
+                <span className="font-mono font-bold text-[11px] bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded">
+                  {selectedDuty.workingHours}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Time & Duration */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">

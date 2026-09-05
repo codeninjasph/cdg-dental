@@ -25,8 +25,15 @@ import {
   Building,
   Coffee,
   Loader2,
+  ArrowRight,
 } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import {
+  getDentistDutyForDate,
+  getNextOnDutyDate,
+  filterDentistsByDuty,
+  isBranchMatch,
+} from "@/lib/duty-schedule";
 
 interface PublicBookingModalProps {
   isOpen: boolean;
@@ -55,6 +62,8 @@ interface PublicDentist {
   photo_url?: string;
   photoUrl?: string;
   specialty: string;
+  clinic_days?: { branchName: string; days: string; hours: string }[];
+  cdoClinicDays?: { branchName: string; days: string; hours: string }[];
 }
 
 const DAY_NAMES = [
@@ -289,21 +298,57 @@ export function PublicBookingModal({
 
   const isDayClosed = activeDaySchedule ? !activeDaySchedule.is_open : false;
 
-  // Clear selected time if chosen day is closed
+  // Duty Schedule Evaluation for Selected Dentist or Branch Roster
+  const dentistDuty = useMemo(() => {
+    if (!activeDentist || !activeBranch || !selectedDate) return null;
+    return getDentistDutyForDate(activeDentist, activeBranch, selectedDate);
+  }, [activeDentist, activeBranch, selectedDate]);
+
+  const nextAvailableDutyDate = useMemo(() => {
+    if (!activeDentist || !activeBranch || !selectedDate || (dentistDuty && dentistDuty.isOnDuty)) return null;
+    return getNextOnDutyDate(activeDentist, activeBranch, selectedDate);
+  }, [activeDentist, activeBranch, selectedDate, dentistDuty]);
+
+  const branchDutyRoster = useMemo(() => {
+    if (!activeBranch || !selectedDate) return { onDuty: [], offDuty: [] };
+    return filterDentistsByDuty(dentistsList, activeBranch, selectedDate);
+  }, [dentistsList, activeBranch, selectedDate]);
+
+  const isDentistOffDuty = Boolean(activeDentist && dentistDuty && !dentistDuty.isOnDuty);
+  const isNoDentistAvailable = Boolean(!activeDentist && branchDutyRoster.onDuty.length === 0);
+
+  // Clear selected time if chosen day is closed or doctor is off duty
   useEffect(() => {
-    if (isDayClosed && selectedTime) {
+    if ((isDayClosed || isDentistOffDuty || isNoDentistAvailable) && selectedTime) {
       setSelectedTime("");
     }
-  }, [isDayClosed, selectedTime]);
+  }, [isDayClosed, isDentistOffDuty, isNoDentistAvailable, selectedTime]);
 
-  // Dynamically compute available slots for the selected day based on DB operating hours & lunch break
+  // Dynamically compute available slots for the selected day based on DB operating hours & dentist duty hours
   const computedSlots = useMemo(() => {
     if (!activeDaySchedule || !activeDaySchedule.is_open) return [];
+    if (isDentistOffDuty) return [];
 
     const slots: string[] = [];
-    const [openH, openM] = (activeDaySchedule.open_time || "09:00").slice(0, 5).split(":").map(Number);
-    const [closeH, closeM] = (activeDaySchedule.close_time || "18:00").slice(0, 5).split(":").map(Number);
+    let [openH, openM] = (activeDaySchedule.open_time || "09:00").slice(0, 5).split(":").map(Number);
+    let [closeH, closeM] = (activeDaySchedule.close_time || "18:00").slice(0, 5).split(":").map(Number);
     const step = activeDaySchedule.slot_duration_minutes || 60;
+
+    // Constrain to active doctor duty hours if available
+    if (activeDentist && dentistDuty && dentistDuty.isOnDuty && dentistDuty.startTime && dentistDuty.endTime) {
+      const [dStartH, dStartM] = dentistDuty.startTime.split(":").map(Number);
+      const [dEndH, dEndM] = dentistDuty.endTime.split(":").map(Number);
+      const dStartMin = dStartH * 60 + dStartM;
+      const dEndMin = dEndH * 60 + dEndM;
+      const bOpenMin = openH * 60 + openM;
+      const bCloseMin = closeH * 60 + closeM;
+      const effectiveOpen = Math.max(bOpenMin, dStartMin);
+      const effectiveClose = Math.min(bCloseMin, dEndMin);
+      openH = Math.floor(effectiveOpen / 60);
+      openM = effectiveOpen % 60;
+      closeH = Math.floor(effectiveClose / 60);
+      closeM = effectiveClose % 60;
+    }
 
     let [bStartH, bStartM] = [12, 0];
     let [bEndH, bEndM] = [13, 0];
@@ -333,7 +378,7 @@ export function PublicBookingModal({
     }
 
     return slots;
-  }, [activeDaySchedule]);
+  }, [activeDaySchedule, isDentistOffDuty, activeDentist, dentistDuty]);
 
   // 6. Direct Database Booking Submission via /api/public/booking
   const handleConfirmBooking = async (e: React.FormEvent) => {
@@ -671,9 +716,31 @@ export function PublicBookingModal({
                           <span className="text-[10px] text-teal-700 dark:text-teal-400 font-medium block truncate">
                             {doc.specialty}
                           </span>
-                          <span className="text-[10px] text-slate-400 block mt-0.5">
-                            PRC: {prc}
-                          </span>
+
+                          {/* Branch specific schedule pill */}
+                          {(() => {
+                            const schedules = doc.clinic_days || doc.cdoClinicDays || [];
+                            const branchSched = schedules.find((s) => isBranchMatch(s.branchName, activeBranch));
+                            if (branchSched) {
+                              return (
+                                <span className="inline-block mt-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800/60 truncate max-w-full">
+                                  📅 {branchSched.days} ({branchSched.hours})
+                                </span>
+                              );
+                            }
+                            if (schedules.length > 0) {
+                              return (
+                                <span className="text-[10px] text-slate-400 block mt-0.5 truncate">
+                                  Primary: {schedules[0].branchName}
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="text-[10px] text-slate-400 block mt-0.5">
+                                PRC: {prc}
+                              </span>
+                            );
+                          })()}
                         </div>
                       </button>
                     );
@@ -698,9 +765,9 @@ export function PublicBookingModal({
                   </p>
                 </div>
 
-                {/* Date Input */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+                {/* Date Input & Real-Time Duty Badges */}
+                <div className="space-y-2.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Appointment Date
                   </label>
                   <div className="flex items-center gap-3">
@@ -715,6 +782,76 @@ export function PublicBookingModal({
                       />
                     </div>
                   </div>
+
+                  {/* Off Duty Alert for selected doctor with Jump Button */}
+                  {isDentistOffDuty && activeDentist && dentistDuty && (
+                    <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 text-amber-900 dark:text-amber-200 space-y-3 animate-in fade-in duration-200">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <strong className="block font-bold text-sm">
+                            {activeDentist.name} is Not on Duty on {DAY_NAMES[selectedDayOfWeek ?? 0]}s
+                          </strong>
+                          <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5 leading-relaxed">
+                            {dentistDuty.reason}. Regular schedule:{" "}
+                            <span className="font-semibold">{dentistDuty.scheduleDescription}</span>.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-200/60 dark:border-amber-800/60">
+                        {nextAvailableDutyDate && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDate(nextAvailableDutyDate)}
+                            className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Calendar className="w-3.5 h-3.5" />
+                            <span>Pick Next Open Date ({nextAvailableDutyDate})</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDentistId("any")}
+                          className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-100 font-semibold text-xs hover:bg-amber-100/50 transition-colors cursor-pointer"
+                        >
+                          Switch to First Available Doctor on {selectedDate}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* On Duty Confirmation for selected doctor */}
+                  {!isDentistOffDuty && activeDentist && dentistDuty && dentistDuty.isOnDuty && (
+                    <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs flex items-center justify-between animate-in fade-in duration-150">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="font-semibold">{activeDentist.name} is scheduled on duty</span>
+                      </div>
+                      <span className="font-mono font-bold text-[11px] bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded">
+                        {dentistDuty.workingHours}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* First Available Doctor Duty Roster Summary */}
+                  {(!activeDentist || selectedDentistId === "any") && (
+                    <div className="p-3 rounded-xl bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 text-teal-800 dark:text-teal-200 text-xs flex items-center justify-between animate-in fade-in duration-150">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-teal-600 shrink-0" />
+                        <span className="font-semibold">
+                          {branchDutyRoster.onDuty.length > 0
+                            ? `${branchDutyRoster.onDuty.length} specialist${branchDutyRoster.onDuty.length > 1 ? "s" : ""} on duty at ${activeBranch.shortName || activeBranch.name}`
+                            : `Earliest available doctor openings`}
+                        </span>
+                      </div>
+                      {branchDutyRoster.onDuty.length > 0 && (
+                        <span className="text-[10px] text-teal-700 dark:text-teal-300 font-medium truncate max-w-[220px]">
+                          {branchDutyRoster.onDuty.map((o) => o.dentist.name.split(",")[0]).join(", ")}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Closed Alert or Time Slots Grid */}
