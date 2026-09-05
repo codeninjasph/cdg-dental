@@ -26,6 +26,7 @@ import { ModalPortal } from "@/components/ui/modal-portal";
 
 import {
   Calendar,
+  CalendarCheck,
   Users,
   CreditCard,
   Plus,
@@ -58,7 +59,6 @@ import {
   Sparkles,
   Check,
   Copy,
-  CalendarCheck,
   CalendarPlus,
   Receipt,
   X,
@@ -97,21 +97,21 @@ function SecretaryPortalContent() {
 
   // Active Tab synchronized with URL search params
   const [activeTab, setActiveTab] = useState<
-    "queue" | "recalls" | "patients" | "billing" | "documents"
+    "queue" | "bookings" | "recalls" | "patients" | "billing" | "documents"
   >(() => {
-    if (tabParam && ["queue", "recalls", "patients", "billing", "documents"].includes(tabParam)) {
-      return tabParam as "queue" | "recalls" | "patients" | "billing" | "documents";
+    if (tabParam && ["queue", "bookings", "recalls", "patients", "billing", "documents"].includes(tabParam)) {
+      return tabParam as "queue" | "bookings" | "recalls" | "patients" | "billing" | "documents";
     }
     return "queue";
   });
 
   useEffect(() => {
-    if (tabParam && ["queue", "recalls", "patients", "billing", "documents"].includes(tabParam)) {
-      setActiveTab(tabParam as "queue" | "recalls" | "patients" | "billing" | "documents");
+    if (tabParam && ["queue", "bookings", "recalls", "patients", "billing", "documents"].includes(tabParam)) {
+      setActiveTab(tabParam as "queue" | "bookings" | "recalls" | "patients" | "billing" | "documents");
     }
   }, [tabParam]);
 
-  const handleTabChange = (tab: "queue" | "recalls" | "patients" | "billing" | "documents") => {
+  const handleTabChange = (tab: "queue" | "bookings" | "recalls" | "patients" | "billing" | "documents") => {
     setActiveTab(tab);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
@@ -119,6 +119,14 @@ function SecretaryPortalContent() {
       window.history.replaceState(null, "", url.toString());
     }
   };
+
+  // Online Bookings to Confirm State
+  const [bookingStatusFilter, setBookingStatusFilter] = useState<"needs_call" | "confirmed" | "all">("needs_call");
+  const [bookingSearch, setBookingSearch] = useState<string>("");
+  const [bookingDentistFilter, setBookingDentistFilter] = useState<string>("all");
+  const [bookingTimeFilter, setBookingTimeFilter] = useState<"all" | "today" | "tomorrow" | "week">("all");
+  const [bookingsPage, setBookingsPage] = useState<number>(1);
+  const bookingsPageSize = 10;
 
   // Merge modal state
   const [isMergeOpen, setIsMergeOpen] = useState(false);
@@ -644,6 +652,94 @@ function SecretaryPortalContent() {
     return Object.values(map);
   }, [pendingTreatments]);
 
+  // Online Bookings Scoped to Secretary's Assigned Branch
+  const unconfirmedBookings = useMemo(() => {
+    return appointments
+      .filter((a) => {
+        if (a.status !== "scheduled") return false;
+        if (activeBranch?.id && a.branch_id && a.branch_id !== activeBranch.id) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  }, [appointments, activeBranch]);
+
+  const confirmedBookingsCount = useMemo(() => {
+    return appointments.filter((a) => {
+      if (a.status !== "confirmed") return false;
+      if (activeBranch?.id && a.branch_id && a.branch_id !== activeBranch.id) return false;
+      return true;
+    }).length;
+  }, [appointments, activeBranch]);
+
+  // Today string in Asia/Manila (PST UTC+8)
+  const manilaTodayDateStr = useMemo(() => {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+  }, []);
+
+  const filteredBookings = useMemo(() => {
+    return appointments
+      .filter((a) => {
+        if (activeBranch?.id && a.branch_id && a.branch_id !== activeBranch.id) return false;
+
+        // Status filter
+        if (bookingStatusFilter === "needs_call" && a.status !== "scheduled") return false;
+        if (bookingStatusFilter === "confirmed" && a.status !== "confirmed") return false;
+        if (bookingStatusFilter === "all" && !["scheduled", "confirmed", "cancelled"].includes(a.status)) return false;
+
+        // Dentist filter
+        if (bookingDentistFilter !== "all" && a.dentist_id !== bookingDentistFilter) return false;
+
+        // Date timeframe filter
+        const apptDate = a.start_time ? a.start_time.split("T")[0] : "";
+        if (bookingTimeFilter === "today" && apptDate !== manilaTodayDateStr) return false;
+        if (bookingTimeFilter === "tomorrow") {
+          const tom = new Date();
+          tom.setDate(tom.getDate() + 1);
+          const tomStr = tom.toISOString().split("T")[0];
+          if (apptDate !== tomStr) return false;
+        }
+        if (bookingTimeFilter === "week") {
+          const nextWeek = new Date();
+          nextWeek.setDate(nextWeek.getDate() + 7);
+          const nextWeekStr = nextWeek.toISOString().split("T")[0];
+          if (apptDate < manilaTodayDateStr || apptDate > nextWeekStr) return false;
+        }
+
+        // Search query
+        if (bookingSearch.trim()) {
+          const q = bookingSearch.toLowerCase();
+          const pName = `${a.patient?.first_name || ""} ${a.patient?.last_name || ""}`.toLowerCase();
+          const phone = (a.patient?.phone || "").toLowerCase();
+          const notes = (a.notes || "").toLowerCase();
+          const doctor = (a.dentist?.full_name || "").toLowerCase();
+          return pName.includes(q) || phone.includes(q) || notes.includes(q) || doctor.includes(q);
+        }
+
+        return true;
+      })
+      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  }, [
+    appointments,
+    activeBranch,
+    bookingStatusFilter,
+    bookingDentistFilter,
+    bookingTimeFilter,
+    bookingSearch,
+    manilaTodayDateStr,
+  ]);
+
+  const paginatedBookings = useMemo(() => {
+    return filteredBookings.slice(
+      (bookingsPage - 1) * bookingsPageSize,
+      bookingsPage * bookingsPageSize
+    );
+  }, [filteredBookings, bookingsPage, bookingsPageSize]);
+
   const queueAppointments = appointments.filter((a) => {
     const apptDate = a.start_time.split("T")[0];
     if (queueDate && apptDate !== queueDate) return false;
@@ -769,7 +865,7 @@ function SecretaryPortalContent() {
       </div>
 
       {/* ── KPI METRIC CARDS ── exact same pattern as /portal */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         {/* Lobby Waiting */}
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
@@ -836,6 +932,45 @@ function SecretaryPortalContent() {
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
             Visits finished
+          </p>
+        </div>
+
+        {/* Bookings to Confirm */}
+        <div
+          onClick={() => handleTabChange("bookings")}
+          title="Click to view new online bookings needing phone call confirmation"
+          className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all cursor-pointer hover:border-teal-400 group"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-teal-600 transition-colors">
+              Bookings to Confirm
+            </span>
+            <div
+              className={`p-2 rounded-xl group-hover:scale-105 transition-transform ${
+                unconfirmedBookings.length > 0
+                  ? "bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400"
+                  : "bg-teal-50 dark:bg-teal-950 text-teal-600 dark:text-teal-400"
+              }`}
+            >
+              <PhoneCall className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span
+              className={`text-2xl sm:text-3xl font-extrabold font-mono ${
+                unconfirmedBookings.length > 0
+                  ? "text-amber-600 dark:text-amber-400"
+                  : "text-slate-800 dark:text-slate-200"
+              }`}
+            >
+              {unconfirmedBookings.length}
+            </span>
+            <span className="text-xs text-slate-500 font-medium">To Call</span>
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+            {unconfirmedBookings.length > 0
+              ? "Pending phone verification"
+              : "All bookings confirmed"}
           </p>
         </div>
 
@@ -940,6 +1075,27 @@ function SecretaryPortalContent() {
         </button>
 
         <button
+          onClick={() => handleTabChange("bookings")}
+          className={`pb-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            activeTab === "bookings"
+              ? "border-teal-500 text-teal-600 dark:text-teal-400"
+              : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+          }`}
+        >
+          <PhoneCall className="w-4 h-4" />
+          <span>New Bookings to Confirm</span>
+          {unconfirmedBookings.length > 0 ? (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 animate-pulse">
+              {unconfirmedBookings.length} to call
+            </span>
+          ) : (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+              0
+            </span>
+          )}
+        </button>
+
+        <button
           onClick={() => handleTabChange("recalls")}
           className={`pb-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
             activeTab === "recalls"
@@ -1013,6 +1169,37 @@ function SecretaryPortalContent() {
       {/* ══════════════════════════════════════════════════════════════ */}
       {activeTab === "queue" && (
         <div className="space-y-4">
+          {/* Unconfirmed Bookings Call Alert Banner */}
+          {unconfirmedBookings.length > 0 && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border border-amber-200/80 dark:border-amber-800/60 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-300">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500 text-white shadow-xs shrink-0">
+                  <PhoneCall className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                      {unconfirmedBookings.length} New Online Booking{unconfirmedBookings.length === 1 ? "" : "s"} Requiring Call Confirmation
+                    </h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200/70 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                      Branch: {activeBranch?.name || "Assigned Hub"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-700 dark:text-amber-300/90 mt-0.5">
+                    Patients booked online for upcoming dates. Call to verify and confirm their appointments before arrival.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleTabChange("bookings")}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer shrink-0"
+              >
+                <span>Call & Confirm Bookings ({unconfirmedBookings.length})</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* Filter bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
@@ -1260,6 +1447,455 @@ function SecretaryPortalContent() {
               pageSize={queuePageSize}
               onPageChange={setQueuePage}
               itemName="visits"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/* WORKSTATION — NEW BOOKINGS & PHONE CONFIRMATION DESK          */}
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {activeTab === "bookings" && (
+        <div className="space-y-6">
+          {/* Workstation Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-teal-50 dark:bg-teal-950/70 text-teal-700 dark:text-teal-300 border border-teal-200/60 dark:border-teal-800/60">
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>Branch: <strong>{activeBranch?.name || "Downtown CDO (Limketkai Hub)"}</strong></span>
+                </span>
+                {unconfirmedBookings.length > 0 ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                    <PhoneCall className="w-3 h-3" />
+                    {unconfirmedBookings.length} to confirm
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                    <Check className="w-3 h-3" />
+                    All confirmed
+                  </span>
+                )}
+              </div>
+              <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
+                <PhoneCall className="w-5 h-5 text-teal-600" />
+                New Bookings & Phone Confirmation Desk
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
+                Online bookings submitted by patients for this branch across all upcoming dates. Call to verify attendance, confirm their schedule, or reschedule conflicts before they arrive.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => {
+                  setApptInitialPatientId(undefined);
+                  setIsApptModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs hover:shadow transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New Booking</span>
+              </button>
+              <button
+                onClick={() => {
+                  triggerRefresh();
+                  showToast("Bookings list synchronized!", "success");
+                }}
+                title="Refresh bookings"
+                className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Filter Bar */}
+          <div className="flex flex-col gap-3">
+            {/* Status Pills */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => {
+                  setBookingStatusFilter("needs_call");
+                  setBookingsPage(1);
+                }}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  bookingStatusFilter === "needs_call"
+                    ? "bg-amber-600 text-white shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
+                }`}
+              >
+                <PhoneCall className="w-3.5 h-3.5" />
+                <span>Needs Phone Call</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                  bookingStatusFilter === "needs_call"
+                    ? "bg-white/20 text-white"
+                    : unconfirmedBookings.length > 0
+                    ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                    : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                }`}>
+                  {unconfirmedBookings.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setBookingStatusFilter("confirmed");
+                  setBookingsPage(1);
+                }}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  bookingStatusFilter === "confirmed"
+                    ? "bg-teal-600 text-white shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Confirmed Bookings</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                  bookingStatusFilter === "confirmed"
+                    ? "bg-white/20 text-white"
+                    : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                }`}>
+                  {confirmedBookingsCount}
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setBookingStatusFilter("all");
+                  setBookingsPage(1);
+                }}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  bookingStatusFilter === "all"
+                    ? "bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
+                }`}
+              >
+                <span>All Bookings</span>
+              </button>
+            </div>
+
+            {/* Sub-filters row: Search + Date Timeframe + Doctor */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search patient, phone, doctor, specialty..."
+                  value={bookingSearch}
+                  onChange={(e) => {
+                    setBookingSearch(e.target.value);
+                    setBookingsPage(1);
+                  }}
+                  className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                />
+              </div>
+
+              {/* Timeframe selector */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Date:</span>
+                <select
+                  value={bookingTimeFilter}
+                  onChange={(e: any) => {
+                    setBookingTimeFilter(e.target.value);
+                    setBookingsPage(1);
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                >
+                  <option value="all">All Dates</option>
+                  <option value="today">Today Only</option>
+                  <option value="tomorrow">Tomorrow Only</option>
+                  <option value="week">Next 7 Days</option>
+                </select>
+              </div>
+
+              {/* Doctor filter */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Filter className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Doctor:</span>
+                <select
+                  value={bookingDentistFilter}
+                  onChange={(e) => {
+                    setBookingDentistFilter(e.target.value);
+                    setBookingsPage(1);
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                >
+                  <option value="all">All Dentists</option>
+                  {dentists.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Bookings List Cards */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs divide-y divide-slate-100 dark:divide-slate-800/80 overflow-hidden">
+            {isLoading ? (
+              <div className="p-12 text-center text-slate-500 dark:text-slate-400 text-sm">
+                Loading bookings...
+              </div>
+            ) : filteredBookings.length === 0 ? (
+              <div className="p-12 text-center">
+                <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 mx-auto flex items-center justify-center mb-3">
+                  {bookingStatusFilter === "needs_call" ? (
+                    <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                  ) : (
+                    <CalendarCheck className="w-6 h-6 text-slate-400" />
+                  )}
+                </div>
+                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  {bookingStatusFilter === "needs_call"
+                    ? "All Bookings Confirmed!"
+                    : "No Bookings Found"}
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto mt-1">
+                  {bookingStatusFilter === "needs_call"
+                    ? "No pending bookings requiring phone calls for this branch right now. Great job keeping the schedule confirmed!"
+                    : "No appointments match the selected filters or date range."}
+                </p>
+              </div>
+            ) : (
+              paginatedBookings.map((appt) => {
+                const apptDateObj = new Date(appt.start_time);
+                const dateIsoStr = appt.start_time ? appt.start_time.split("T")[0] : "";
+                const isToday = dateIsoStr === manilaTodayDateStr;
+                
+                const tomDate = new Date();
+                tomDate.setDate(tomDate.getDate() + 1);
+                const isTomorrow = dateIsoStr === tomDate.toISOString().split("T")[0];
+
+                const weekdayStr = apptDateObj.toLocaleDateString("en-US", { weekday: "short" });
+                const dateDisplayStr = apptDateObj.toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                });
+                const startTimeStr = apptDateObj.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+                const endTimeStr = new Date(appt.end_time).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+
+                const isOnlineBooking = (appt.notes || "").includes("[Online Patient Booking]");
+                const hasCallVerification = (appt.notes || "").includes("[Call Verification");
+
+                return (
+                  <div
+                    key={appt.id}
+                    className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-850/30 transition-colors"
+                  >
+                    {/* Left: Schedule & Patient Details */}
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-4 flex-1">
+                      {/* Date + Time block */}
+                      <div className="flex sm:flex-col items-center justify-center p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-center min-w-[110px] gap-1 shrink-0">
+                        {isToday ? (
+                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-600 text-white shadow-xs">
+                            Today
+                          </span>
+                        ) : isTomorrow ? (
+                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-xs">
+                            Tomorrow
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                            {weekdayStr}
+                          </span>
+                        )}
+                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                          {dateDisplayStr}
+                        </span>
+                        <div className="text-[11px] font-mono font-bold text-teal-600 dark:text-teal-400 mt-0.5">
+                          {startTimeStr} - {endTimeStr}
+                        </div>
+                      </div>
+
+                      {/* Patient & Doctor Details */}
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => {
+                              if (appt.patient?.id) {
+                                setPreviewPatientId(appt.patient.id);
+                                setIsPreviewOpen(true);
+                              }
+                            }}
+                            className="font-bold text-sm text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline transition-colors text-left"
+                          >
+                            {appt.patient
+                              ? `${appt.patient.first_name} ${appt.patient.last_name}`
+                              : "Unknown Patient"}
+                          </button>
+
+                          {/* Status Badge */}
+                          {appt.status === "scheduled" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 flex items-center gap-1">
+                              <PhoneCall className="w-3 h-3" />
+                              Needs Confirmation Call
+                            </span>
+                          )}
+                          {appt.status === "confirmed" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Confirmed
+                            </span>
+                          )}
+                          {appt.status === "cancelled" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/60 flex items-center gap-1">
+                              <X className="w-3 h-3" />
+                              Cancelled
+                            </span>
+                          )}
+
+                          {isOnlineBooking && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300 border border-teal-200/60 dark:border-teal-800/60 flex items-center gap-1">
+                              <Sparkles className="w-2.5 h-2.5" />
+                              Online Patient Booking
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Contact info row */}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                          {appt.patient?.phone ? (
+                            <div className="flex items-center gap-1.5">
+                              <Phone className="w-3.5 h-3.5 text-teal-600" />
+                              <a
+                                href={`tel:${appt.patient.phone}`}
+                                className="font-semibold text-slate-800 dark:text-slate-200 hover:text-teal-600 dark:hover:text-teal-400 hover:underline"
+                              >
+                                {appt.patient.phone}
+                              </a>
+                              <button
+                                onClick={() => handleCopyPhone(appt.patient.phone)}
+                                title="Copy Phone Number"
+                                className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors text-slate-400 hover:text-slate-600"
+                              >
+                                {copiedPhone === appt.patient.phone ? (
+                                  <Check className="w-3 h-3 text-emerald-600" />
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 italic">No phone on file</span>
+                          )}
+
+                          <span className="text-slate-300 dark:text-slate-700">•</span>
+                          <span>
+                            Doctor: <strong className="text-slate-700 dark:text-slate-300">{appt.dentist?.full_name || "Unassigned"}</strong>
+                          </span>
+
+                          <span className="text-slate-300 dark:text-slate-700">•</span>
+                          <span>
+                            Branch: <strong className="text-slate-700 dark:text-slate-300">{activeBranch?.name || "Downtown CDO"}</strong>
+                          </span>
+                        </div>
+
+                        {/* Medical alerts if any */}
+                        {appt.patient?.medical_alerts && (
+                          <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 px-2 py-0.5 rounded-md border border-rose-200/60 dark:border-rose-800/60">
+                            <AlertTriangle className="w-3 h-3 shrink-0" />
+                            <span>Alert: {appt.patient.medical_alerts}</span>
+                          </div>
+                        )}
+
+                        {/* Booking notes box */}
+                        {appt.notes && (
+                          <div className="text-xs bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300 space-y-1">
+                            <div className="flex items-center gap-1 font-semibold text-[11px] text-slate-500 dark:text-slate-400">
+                              <FileText className="w-3 h-3" />
+                              <span>Booking Notes:</span>
+                              {hasCallVerification && (
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950 px-1.5 py-0.2 rounded ml-1">
+                                  Call Logged
+                                </span>
+                              )}
+                            </div>
+                            <p className="whitespace-pre-line text-xs font-normal">
+                              {appt.notes}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right: Action Buttons */}
+                    <div className="flex sm:flex-row lg:flex-col xl:flex-row items-center gap-2 shrink-0 pt-2 lg:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
+                      {/* Direct Call Link */}
+                      {appt.patient?.phone && (
+                        <a
+                          href={`tel:${appt.patient.phone}`}
+                          title={`Call ${appt.patient.first_name} at ${appt.patient.phone}`}
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/70 dark:hover:bg-amber-900/70 text-amber-700 dark:text-amber-300 text-xs font-bold border border-amber-200/80 dark:border-amber-800/60 transition-all cursor-pointer"
+                        >
+                          <PhoneCall className="w-3.5 h-3.5" />
+                          <span>Call Patient</span>
+                        </a>
+                      )}
+
+                      {/* Verify Call / Reschedule Modal trigger */}
+                      <button
+                        onClick={() => handleOpenConfirmReschedule(appt)}
+                        title="Log phone call verification note, reschedule date/time, or change dentist"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950 dark:hover:bg-teal-900 text-teal-700 dark:text-teal-300 text-xs font-bold border border-teal-200/80 dark:border-teal-800/60 transition-all cursor-pointer"
+                      >
+                        <CalendarCheck className="w-3.5 h-3.5" />
+                        <span>Verify / Reschedule</span>
+                      </button>
+
+                      {/* 1-Click Quick Confirm */}
+                      {appt.status === "scheduled" && (
+                        <button
+                          onClick={() => handleUpdateStatus(appt.id, "confirmed")}
+                          title="Mark confirmed after verbal verification with patient"
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Confirm</span>
+                        </button>
+                      )}
+
+                      {/* Cancel Booking */}
+                      {appt.status !== "cancelled" && (
+                        <button
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `Are you sure you want to cancel the booking for ${appt.patient ? appt.patient.first_name + " " + appt.patient.last_name : "this patient"}?`
+                              )
+                            ) {
+                              handleUpdateStatus(appt.id, "cancelled");
+                            }
+                          }}
+                          title="Cancel this appointment"
+                          className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 transition-colors cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+
+            {/* Bookings Pagination */}
+            <Pagination
+              currentPage={bookingsPage}
+              totalPages={Math.max(1, Math.ceil(filteredBookings.length / bookingsPageSize))}
+              totalItems={filteredBookings.length}
+              pageSize={bookingsPageSize}
+              onPageChange={setBookingsPage}
+              itemName="bookings"
             />
           </div>
         </div>
