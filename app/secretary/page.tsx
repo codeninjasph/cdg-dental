@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -20,6 +20,7 @@ import { OfficialReceiptModal } from "@/components/secretary/official-receipt-mo
 import { PatientPreviewModal } from "@/components/secretary/patient-preview-modal";
 import { DocumentIntakeModal } from "@/components/secretary/document-intake-modal";
 import { MergePatientModal } from "@/components/patients/merge-patient-modal";
+import { ConfirmRescheduleModal } from "@/components/secretary/confirm-reschedule-modal";
 import { Pagination } from "@/components/ui/pagination";
 
 import {
@@ -31,6 +32,7 @@ import {
   CheckCircle2,
   Activity,
   Phone,
+  PhoneCall,
   DollarSign,
   FileText,
   UserCheck,
@@ -44,18 +46,43 @@ import {
   Filter,
   Eye,
   AlertTriangle,
+  AlertCircle,
   Building2,
   RefreshCw,
   ShieldAlert,
   ArrowRight,
   Merge,
+  Repeat,
+  Layers,
+  Sparkles,
+  Check,
+  Copy,
+  CalendarCheck,
+  CalendarPlus,
 } from "lucide-react";
+
+function formatTime12h(timeStr?: string) {
+  if (!timeStr) return "";
+  const [h, m] = timeStr.split(":");
+  let hour = parseInt(h, 10);
+  if (isNaN(hour)) return timeStr;
+  const ampm = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12 || 12;
+  return `${hour}:${m || "00"} ${ampm}`;
+}
+
+function getOrdinal(n: number) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return s[(v - 20) % 10] || s[v] || s[0];
+}
 
 function SecretaryPortalContent() {
   const {
     currentRole,
     currentStaff,
     activeBranch,
+    branches,
     showToast,
     refreshTrigger,
     triggerRefresh,
@@ -67,21 +94,21 @@ function SecretaryPortalContent() {
 
   // Active Tab synchronized with URL search params
   const [activeTab, setActiveTab] = useState<
-    "queue" | "patients" | "billing" | "documents"
+    "queue" | "recalls" | "patients" | "billing" | "documents"
   >(() => {
-    if (tabParam && ["queue", "patients", "billing", "documents"].includes(tabParam)) {
-      return tabParam as "queue" | "patients" | "billing" | "documents";
+    if (tabParam && ["queue", "recalls", "patients", "billing", "documents"].includes(tabParam)) {
+      return tabParam as "queue" | "recalls" | "patients" | "billing" | "documents";
     }
     return "queue";
   });
 
   useEffect(() => {
-    if (tabParam && ["queue", "patients", "billing", "documents"].includes(tabParam)) {
-      setActiveTab(tabParam as "queue" | "patients" | "billing" | "documents");
+    if (tabParam && ["queue", "recalls", "patients", "billing", "documents"].includes(tabParam)) {
+      setActiveTab(tabParam as "queue" | "recalls" | "patients" | "billing" | "documents");
     }
   }, [tabParam]);
 
-  const handleTabChange = (tab: "queue" | "patients" | "billing" | "documents") => {
+  const handleTabChange = (tab: "queue" | "recalls" | "patients" | "billing" | "documents") => {
     setActiveTab(tab);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
@@ -110,11 +137,38 @@ function SecretaryPortalContent() {
   const [dentistFilter, setDentistFilter] = useState<string>("all");
   const [patientSearch, setPatientSearch] = useState<string>("");
 
+  // Installment Recalls State
+  const [recallFilter, setRecallFilter] = useState<
+    "needs_call" | "all" | "scheduled" | "overdue" | "on_track" | "completed"
+  >("needs_call");
+  const [recallSearch, setRecallSearch] = useState<string>("");
+  const [recallsPage, setRecallsPage] = useState<number>(1);
+  const recallsPageSize = 8;
+  const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
+
+  const handleCopyPhone = (phone: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(phone);
+      setCopiedPhone(phone);
+      setTimeout(() => setCopiedPhone(null), 2000);
+    }
+  };
+
   // Modals state
   const [isApptModalOpen, setIsApptModalOpen] = useState(false);
-  const [apptInitialPatientId, setApptInitialPatientId] = useState<
-    string | undefined
-  >();
+  const [apptInitialPatientId, setApptInitialPatientId] = useState<string | undefined>();
+  const [apptInitialNotes, setApptInitialNotes] = useState<string | undefined>();
+  const [apptInitialTime, setApptInitialTime] = useState<string | undefined>();
+  const [apptStandingSchedule, setApptStandingSchedule] = useState<string | undefined>();
+
+  const resetApptModalState = () => {
+    setIsApptModalOpen(false);
+    setApptInitialPatientId(undefined);
+    setApptInitialNotes(undefined);
+    setApptInitialTime(undefined);
+    setApptStandingSchedule(undefined);
+  };
+
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [isCreateBillOpen, setIsCreateBillOpen] = useState(false);
   const [selectedPatientForBill, setSelectedPatientForBill] = useState<
@@ -138,7 +192,24 @@ function SecretaryPortalContent() {
     net_amount: number;
     total_paid: number;
     balance_due: number;
+    is_installment?: boolean;
+    plan_type?: string | null;
+    downpayment_amount?: number;
+    installment_amount?: number;
+    total_installments?: number;
+    frequency?: string;
+    preferred_schedule?: any;
+    payments?: any[];
   } | null>(null);
+
+  // Phone Call Verification & Reschedule Modal State
+  const [isConfirmRescheduleOpen, setIsConfirmRescheduleOpen] = useState(false);
+  const [selectedApptForConfirm, setSelectedApptForConfirm] = useState<any | null>(null);
+
+  const handleOpenConfirmReschedule = (appt: any) => {
+    setSelectedApptForConfirm(appt);
+    setIsConfirmRescheduleOpen(true);
+  };
 
   const supabase = createClient();
   const dentists = staffList.filter(
@@ -167,7 +238,7 @@ function SecretaryPortalContent() {
       const { data: billData } = await supabase
         .from("treatment_bills")
         .select(
-          `*, patient:patients(id, first_name, last_name, phone, address),
+          `*, patient:patients(id, first_name, last_name, phone, email, address),
           appointment:appointments(start_time, dentist:profiles(full_name)),
           payments:payment_logs(id, amount_logged, payment_method, reference_number, logged_at, staff:profiles(full_name))`
         )
@@ -236,10 +307,19 @@ function SecretaryPortalContent() {
       net_amount: Number(targetBill.net_amount),
       total_paid: paidTotal,
       balance_due: balanceDue,
+      is_installment: targetBill.is_installment,
+      plan_type: targetBill.plan_type,
+      downpayment_amount: targetBill.downpayment_amount ? Number(targetBill.downpayment_amount) : undefined,
+      installment_amount: targetBill.installment_amount ? Number(targetBill.installment_amount) : undefined,
+      total_installments: targetBill.total_installments ? Number(targetBill.total_installments) : undefined,
+      frequency: targetBill.frequency,
+      preferred_schedule: targetBill.preferred_schedule,
+      payments: targetBill.payments,
     });
   };
 
   const handleOpenPaymentFromBalance = (b: OutstandingBalance) => {
+    const fullBill = bills.find((bill) => bill.id === b.bill_id);
     setPaymentBill({
       id: b.bill_id,
       invoice_number: b.invoice_number,
@@ -247,8 +327,221 @@ function SecretaryPortalContent() {
       net_amount: Number(b.net_amount),
       total_paid: Number(b.total_paid),
       balance_due: Number(b.balance_due),
+      is_installment: b.is_installment ?? fullBill?.is_installment,
+      plan_type: b.plan_type ?? fullBill?.plan_type,
+      downpayment_amount: (b.downpayment_amount ?? fullBill?.downpayment_amount) ? Number(b.downpayment_amount ?? fullBill?.downpayment_amount) : undefined,
+      installment_amount: (b.installment_amount ?? fullBill?.installment_amount) ? Number(b.installment_amount ?? fullBill?.installment_amount) : undefined,
+      total_installments: (b.total_installments ?? fullBill?.total_installments) ? Number(b.total_installments ?? fullBill?.total_installments) : undefined,
+      frequency: b.frequency ?? fullBill?.frequency,
+      preferred_schedule: b.preferred_schedule ?? fullBill?.preferred_schedule,
+      payments: fullBill?.payments,
     });
   };
+
+  // Active installment bills and rolling recall calculation
+  const installmentRecalls = useMemo(() => {
+    return bills
+      .filter((b) => b.is_installment && b.status !== "cancelled")
+      .map((b) => {
+        const totalAmount = Number(b.net_amount || 0);
+        const totalPaid = (b.payments || []).reduce(
+          (sum: number, p: any) => sum + Number(p.amount_logged || 0),
+          0
+        );
+        const balanceDue = Math.max(0, totalAmount - totalPaid);
+        const downpayment = Number(b.downpayment_amount || 0);
+        const installmentAmount = Number(b.installment_amount || 0);
+        const totalInstallments = Number(b.total_installments || 0);
+
+        // Adjustments milestone calculation
+        let installmentsPaid = 0;
+        if (installmentAmount > 0) {
+          const installmentMoneyPaid = Math.max(0, totalPaid - downpayment);
+          installmentsPaid = Math.min(
+            totalInstallments,
+            Math.floor(installmentMoneyPaid / installmentAmount)
+          );
+        }
+        const currentMilestoneIndex = Math.min(
+          totalInstallments,
+          installmentsPaid + 1
+        );
+
+        // Cross-reference appointments for this patient
+        const patientAppts = appointments.filter(
+          (a) =>
+            (b.patient && a.patient?.id === b.patient.id) ||
+            a.patient?.id === b.patient_id
+        );
+
+        const now = new Date();
+        const todayStr = now.toISOString().split("T")[0];
+
+        // Active upcoming appointment (today or future)
+        const upcomingAppt = patientAppts
+          .filter(
+            (a) =>
+              ["scheduled", "confirmed", "arrived", "in_treatment"].includes(
+                a.status
+              ) && a.start_time.split("T")[0] >= todayStr
+          )
+          .sort(
+            (a, b) =>
+              new Date(a.start_time).getTime() -
+              new Date(b.start_time).getTime()
+          )[0];
+
+        // Latest completed appointment
+        const completedAppts = patientAppts
+          .filter((a) => a.status === "completed")
+          .sort(
+            (a, b) =>
+              new Date(b.start_time).getTime() -
+              new Date(a.start_time).getTime()
+          );
+        const lastCompletedAppt = completedAppts[0];
+
+        // Baseline date for recall window: last completed visit or invoice creation date
+        const baselineDate = lastCompletedAppt
+          ? new Date(lastCompletedAppt.start_time)
+          : new Date(b.created_at);
+        const daysSinceLast = Math.max(
+          0,
+          Math.floor(
+            (now.getTime() - baselineDate.getTime()) / (1000 * 60 * 60 * 24)
+          )
+        );
+
+        // Recall Status:
+        // 1. "scheduled": patient already has an upcoming adjustment booked
+        // 2. "overdue": no upcoming visit AND > 42 days (6+ weeks)
+        // 3. "due": no upcoming visit AND 25 - 42 days (approx 4 weeks, monthly adjustment call due)
+        // 4. "upcoming": no upcoming visit AND < 25 days (recently seen, on track)
+        let recallStatus: "scheduled" | "overdue" | "due" | "upcoming" =
+          "upcoming";
+        if (upcomingAppt) {
+          recallStatus = "scheduled";
+        } else if (daysSinceLast >= 42) {
+          recallStatus = "overdue";
+        } else if (daysSinceLast >= 25) {
+          recallStatus = "due";
+        } else {
+          recallStatus = "upcoming";
+        }
+
+        // Standing preferred slot formatting
+        let standingScheduleText: string | null = null;
+        if (b.preferred_schedule) {
+          const pref = b.preferred_schedule;
+          if (pref.timing && pref.standing_day) {
+            const timingLabel = pref.timing
+              .replace("_", " ")
+              .replace("1st week", "1st")
+              .replace("2nd week", "2nd")
+              .replace("3rd week", "3rd")
+              .replace("4th week", "4th");
+            standingScheduleText = `Every ${timingLabel} ${pref.standing_day}${
+              pref.preferred_time ? ` @ ${formatTime12h(pref.preferred_time)}` : ""
+            }`;
+          } else if (pref.notes) {
+            standingScheduleText = pref.notes;
+          }
+        }
+
+        return {
+          bill: b,
+          patient: b.patient,
+          totalAmount,
+          totalPaid,
+          balanceDue,
+          downpayment,
+          installmentAmount,
+          totalInstallments,
+          installmentsPaid,
+          currentMilestoneIndex,
+          upcomingAppt,
+          lastCompletedAppt,
+          baselineDate,
+          daysSinceLast,
+          recallStatus,
+          standingScheduleText,
+        };
+      });
+  }, [bills, appointments]);
+
+  const activeInstallmentsCount = installmentRecalls.filter(
+    (r) => r.balanceDue > 0
+  ).length;
+  const recallsNeedingCallCount = installmentRecalls.filter(
+    (r) =>
+      r.balanceDue > 0 &&
+      (r.recallStatus === "due" || r.recallStatus === "overdue")
+  ).length;
+  const scheduledRecallsCount = installmentRecalls.filter(
+    (r) => r.balanceDue > 0 && r.recallStatus === "scheduled"
+  ).length;
+  const onTrackRecallsCount = installmentRecalls.filter(
+    (r) => r.balanceDue > 0 && r.recallStatus === "upcoming"
+  ).length;
+  const completedContractsCount = installmentRecalls.filter(
+    (r) => r.balanceDue <= 0
+  ).length;
+
+  const handleBookRecallVisit = (recall: any) => {
+    setApptInitialPatientId(recall.patient?.id);
+    setApptInitialTime(
+      recall.bill?.preferred_schedule?.preferred_time || undefined
+    );
+    setApptInitialNotes(
+      `[Installment Adjustment #${recall.currentMilestoneIndex} of ${recall.totalInstallments}] ${
+        recall.bill.plan_type ? recall.bill.plan_type.toUpperCase() : "PACKAGE"
+      } - Invoice: ${recall.bill.invoice_number}`
+    );
+    setApptStandingSchedule(recall.standingScheduleText || undefined);
+    setIsApptModalOpen(true);
+  };
+
+  const filteredRecalls = installmentRecalls.filter((r) => {
+    // Status filter
+    if (recallFilter === "needs_call") {
+      if (r.balanceDue <= 0) return false;
+      if (r.recallStatus !== "due" && r.recallStatus !== "overdue") return false;
+    } else if (recallFilter === "scheduled") {
+      if (r.balanceDue <= 0) return false;
+      if (r.recallStatus !== "scheduled") return false;
+    } else if (recallFilter === "overdue") {
+      if (r.balanceDue <= 0) return false;
+      if (r.recallStatus !== "overdue") return false;
+    } else if (recallFilter === "on_track") {
+      if (r.balanceDue <= 0) return false;
+      if (r.recallStatus !== "upcoming") return false;
+    } else if (recallFilter === "completed") {
+      if (r.balanceDue > 0) return false;
+    }
+
+    // Search query
+    if (recallSearch.trim()) {
+      const q = recallSearch.toLowerCase();
+      const patientName = r.patient
+        ? `${r.patient.first_name} ${r.patient.last_name}`.toLowerCase()
+        : "";
+      const phone = (r.patient?.phone || "").toLowerCase();
+      const invoiceNum = (r.bill.invoice_number || "").toLowerCase();
+      const plan = (r.bill.plan_type || "").toLowerCase();
+      return (
+        patientName.includes(q) ||
+        phone.includes(q) ||
+        invoiceNum.includes(q) ||
+        plan.includes(q)
+      );
+    }
+    return true;
+  });
+
+  const paginatedRecalls = filteredRecalls.slice(
+    (recallsPage - 1) * recallsPageSize,
+    recallsPage * recallsPageSize
+  );
 
   // Aggregations
   const totalBalanceDue = balances.reduce(
@@ -420,7 +713,7 @@ function SecretaryPortalContent() {
       </div>
 
       {/* ── KPI METRIC CARDS ── exact same pattern as /portal */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
         {/* Lobby Waiting */}
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
@@ -490,6 +783,40 @@ function SecretaryPortalContent() {
           </p>
         </div>
 
+        {/* Installment Recalls Due */}
+        <div
+          onClick={() => handleTabChange("recalls")}
+          className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all cursor-pointer hover:border-teal-400"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Installment Recalls
+            </span>
+            <div className={`p-2 rounded-xl ${
+              recallsNeedingCallCount > 0
+                ? "bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400"
+                : "bg-teal-50 dark:bg-teal-950 text-teal-600 dark:text-teal-400"
+            }`}>
+              <Repeat className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className={`text-2xl sm:text-3xl font-extrabold font-mono ${
+              recallsNeedingCallCount > 0
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-slate-800 dark:text-slate-200"
+            }`}>
+              {recallsNeedingCallCount}
+            </span>
+            <span className="text-xs text-slate-500 font-medium">
+              Calls Due
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+            {activeInstallmentsCount} active plans
+          </p>
+        </div>
+
         {/* Receivables */}
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
@@ -545,6 +872,27 @@ function SecretaryPortalContent() {
           <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
             {queueAppointments.length}
           </span>
+        </button>
+
+        <button
+          onClick={() => handleTabChange("recalls")}
+          className={`pb-3 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            activeTab === "recalls"
+              ? "border-teal-500 text-teal-600 dark:text-teal-400"
+              : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+          }`}
+        >
+          <Repeat className="w-4 h-4" />
+          <span>Monthly Installment Recalls</span>
+          {recallsNeedingCallCount > 0 ? (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 animate-pulse">
+              {recallsNeedingCallCount} need call
+            </span>
+          ) : (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+              {activeInstallmentsCount}
+            </span>
+          )}
         </button>
 
         <button
@@ -750,12 +1098,21 @@ function SecretaryPortalContent() {
                     <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center flex-wrap">
                       {appt.status === "scheduled" && (
                         <button
-                          onClick={() =>
-                            handleUpdateStatus(appt.id, "confirmed")
-                          }
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-50 hover:bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 transition-colors cursor-pointer"
+                          onClick={() => handleOpenConfirmReschedule(appt)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
                         >
-                          Confirm Call
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>Call & Confirm</span>
+                        </button>
+                      )}
+                      {(appt.status === "scheduled" ||
+                        appt.status === "confirmed") && (
+                        <button
+                          onClick={() => handleOpenConfirmReschedule(appt)}
+                          className="px-2.5 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                          title="Reschedule appointment date/time"
+                        >
+                          Reschedule
                         </button>
                       )}
                       {(appt.status === "scheduled" ||
@@ -840,6 +1197,527 @@ function SecretaryPortalContent() {
               itemName="visits"
             />
           </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/* WORKSTATION — MONTHLY INSTALLMENT RECALLS & ROLLING VISITS     */}
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {activeTab === "recalls" && (
+        <div className="space-y-6">
+          {/* Workstation Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
+                <Repeat className="w-5 h-5 text-teal-600" />
+                Monthly Installment Recalls & Rolling Appointments
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Active orthodontic adjustments, implants & prosthodontics packages. Track monthly recall calls, scheduled visits, and standing preferred slots.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => {
+                  setSelectedPatientForBill(undefined);
+                  setSelectedApptForBill(undefined);
+                  setIsCreateBillOpen(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm hover:shadow transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Issue Installment Contract</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Metrics Ribbon */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+                Active Packages
+              </span>
+              <span className="text-xl font-extrabold font-mono text-slate-900 dark:text-slate-100">
+                {activeInstallmentsCount}
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40">
+              <span className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider block">
+                Calls Due / Overdue
+              </span>
+              <span className="text-xl font-extrabold font-mono text-amber-600">
+                {recallsNeedingCallCount}
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-900/40">
+              <span className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider block">
+                Booked Visits
+              </span>
+              <span className="text-xl font-extrabold font-mono text-emerald-600">
+                {scheduledRecallsCount}
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+                On Track (&lt;25 days)
+              </span>
+              <span className="text-xl font-extrabold font-mono text-slate-700 dark:text-slate-300">
+                {onTrackRecallsCount}
+              </span>
+            </div>
+          </div>
+
+          {/* Search and Filters Bar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
+            {/* Filter buttons */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => {
+                  setRecallFilter("needs_call");
+                  setRecallsPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  recallFilter === "needs_call"
+                    ? "bg-amber-500 text-slate-950 shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+                }`}
+              >
+                <PhoneCall className="w-3.5 h-3.5" />
+                <span>Needs Call</span>
+                {recallsNeedingCallCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-950 text-white font-mono">
+                    {recallsNeedingCallCount}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => {
+                  setRecallFilter("all");
+                  setRecallsPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  recallFilter === "all"
+                    ? "bg-teal-600 text-white shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+                }`}
+              >
+                <span>All Active Plans</span>
+                <span className="text-[10px] opacity-75">({activeInstallmentsCount})</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setRecallFilter("scheduled");
+                  setRecallsPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  recallFilter === "scheduled"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+                }`}
+              >
+                <CalendarCheck className="w-3.5 h-3.5" />
+                <span>Booked</span>
+                <span className="text-[10px] opacity-75">({scheduledRecallsCount})</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setRecallFilter("on_track");
+                  setRecallsPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  recallFilter === "on_track"
+                    ? "bg-slate-700 text-white shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>On Track</span>
+                <span className="text-[10px] opacity-75">({onTrackRecallsCount})</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setRecallFilter("completed");
+                  setRecallsPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  recallFilter === "completed"
+                    ? "bg-slate-700 text-white shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Fully Settled</span>
+                <span className="text-[10px] opacity-75">({completedContractsCount})</span>
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative w-full md:w-72">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={recallSearch}
+                onChange={(e) => {
+                  setRecallSearch(e.target.value);
+                  setRecallsPage(1);
+                }}
+                placeholder="Search patient, phone, invoice..."
+                className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+              />
+            </div>
+          </div>
+
+          {/* Cards List */}
+          {isLoading ? (
+            <div className="p-12 text-center text-slate-500 text-sm">
+              Loading installment recall directory...
+            </div>
+          ) : filteredRecalls.length === 0 ? (
+            <div className="p-12 text-center rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-500 space-y-2">
+              <Repeat className="w-8 h-8 mx-auto text-slate-400 opacity-50" />
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                No installment plans found in this view.
+              </p>
+              <p className="text-xs text-slate-400">
+                {recallFilter === "needs_call"
+                  ? "Great job! All installment patients are either already scheduled or currently on track."
+                  : "Issue a new installment package to start tracking monthly recalls and standing schedules."}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {paginatedRecalls.map((recall) => {
+                const percentPaid = Math.min(
+                  100,
+                  Math.round((recall.totalPaid / Math.max(1, recall.totalAmount)) * 100)
+                );
+                const isOverdue = recall.recallStatus === "overdue";
+                const isDue = recall.recallStatus === "due";
+                const isBooked = recall.recallStatus === "scheduled";
+
+                const planBadgeStyle =
+                  recall.bill.plan_type === "orthodontics"
+                    ? "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-purple-200"
+                    : recall.bill.plan_type === "implants"
+                    ? "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border-sky-200"
+                    : recall.bill.plan_type === "prosthodontics"
+                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200"
+                    : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 border-slate-200";
+
+                const planName =
+                  recall.bill.plan_type === "orthodontics"
+                    ? "Orthodontics / Braces"
+                    : recall.bill.plan_type === "implants"
+                    ? "Dental Implants"
+                    : recall.bill.plan_type === "prosthodontics"
+                    ? "Prosthodontics / Dentures"
+                    : "Installment Package";
+
+                return (
+                  <div
+                    key={recall.bill.id}
+                    className={`p-5 rounded-2xl bg-white dark:bg-slate-900 border transition-all ${
+                      isOverdue
+                        ? "border-rose-300 dark:border-rose-900/60 shadow-sm shadow-rose-500/5"
+                        : isDue
+                        ? "border-amber-300 dark:border-amber-900/60 shadow-sm shadow-amber-500/5"
+                        : "border-slate-200/80 dark:border-slate-800 shadow-xs"
+                    }`}
+                  >
+                    {/* Top Header Row */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4">
+                      {/* Patient Details */}
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 font-bold flex items-center justify-center text-sm shrink-0">
+                          {recall.patient?.first_name?.[0]}
+                          {recall.patient?.last_name?.[0]}
+                        </div>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setPreviewPatientId(recall.patient?.id);
+                                setIsPreviewOpen(true);
+                              }}
+                              className="font-bold text-slate-900 dark:text-slate-100 hover:text-teal-600 text-base cursor-pointer flex items-center gap-1.5"
+                            >
+                              <span>
+                                {recall.patient?.last_name}, {recall.patient?.first_name}
+                              </span>
+                              <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                            </button>
+
+                            {/* Plan Pill */}
+                            <span
+                              className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${planBadgeStyle} flex items-center gap-1`}
+                            >
+                              <Repeat className="w-3 h-3" />
+                              <span>{planName}</span>
+                            </span>
+
+                            <span className="text-[11px] font-mono text-slate-400">
+                              {recall.bill.invoice_number}
+                            </span>
+                          </div>
+
+                          {/* Contact and standing slot */}
+                          <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                            {recall.patient?.phone ? (
+                              <div className="flex items-center gap-1 font-mono">
+                                <a
+                                  href={`tel:${recall.patient.phone}`}
+                                  className="text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1 font-semibold"
+                                  title="Click to call patient"
+                                >
+                                  <Phone className="w-3.5 h-3.5" />
+                                  <span>{recall.patient.phone}</span>
+                                </a>
+                                <button
+                                  onClick={() => handleCopyPhone(recall.patient.phone)}
+                                  className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                                  title="Copy phone number"
+                                >
+                                  {copiedPhone === recall.patient.phone ? (
+                                    <Check className="w-3 h-3 text-emerald-600" />
+                                  ) : (
+                                    <Copy className="w-3 h-3" />
+                                  )}
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic">No phone registered</span>
+                            )}
+
+                            {recall.standingScheduleText && (
+                              <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium text-[11px] border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+                                <Calendar className="w-3 h-3 text-teal-600" />
+                                <span>Standing Slot: <strong>{recall.standingScheduleText}</strong></span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Recall Status Badge */}
+                      <div className="shrink-0 flex items-center gap-2">
+                        {isOverdue && (
+                          <span className="px-3 py-1 rounded-xl text-xs font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-900 flex items-center gap-1.5 animate-pulse">
+                            <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                            <span>Overdue Call ({recall.daysSinceLast}d since visit)</span>
+                          </span>
+                        )}
+                        {isDue && (
+                          <span className="px-3 py-1 rounded-xl text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-900 flex items-center gap-1.5">
+                            <PhoneCall className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Recall Due ({recall.daysSinceLast}d since visit)</span>
+                          </span>
+                        )}
+                        {isBooked && (
+                          <span className="px-3 py-1 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 flex items-center gap-1.5">
+                            <CalendarCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Next Visit Booked</span>
+                          </span>
+                        )}
+                        {!isOverdue && !isDue && !isBooked && recall.balanceDue > 0 && (
+                          <span className="px-3 py-1 rounded-xl text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            <span>On Track ({recall.daysSinceLast}d ago)</span>
+                          </span>
+                        )}
+                        {recall.balanceDue <= 0 && (
+                          <span className="px-3 py-1 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Contract Fully Settled</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Middle Section: Financial Progress + Appointment Timing */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 my-4">
+                      {/* Financial Progress Box */}
+                      <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-2.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                            <Layers className="w-3.5 h-3.5 text-teal-600" />
+                            <span>
+                              Milestone: <strong>Adjustment #{recall.currentMilestoneIndex} of {recall.totalInstallments}</strong>
+                            </span>
+                          </span>
+                          <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
+                            {percentPaid}% Contract Paid
+                          </span>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-500 rounded-full ${
+                              percentPaid >= 100
+                                ? "bg-emerald-500"
+                                : "bg-gradient-to-r from-teal-500 to-cyan-500"
+                            }`}
+                            style={{ width: `${percentPaid}%` }}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                          <span>
+                            Paid: <strong className="font-mono text-emerald-600 dark:text-emerald-400">₱{recall.totalPaid.toLocaleString()}</strong> of ₱{recall.totalAmount.toLocaleString()}
+                          </span>
+                          <span>
+                            Balance: <strong className="font-mono text-rose-600 dark:text-rose-400">₱{recall.balanceDue.toLocaleString()}</strong>
+                          </span>
+                        </div>
+
+                        <div className="text-[11px] text-slate-500 border-t border-slate-200/60 dark:border-slate-700/60 pt-2 flex items-center justify-between">
+                          <span>
+                            Per Visit Fee: <strong className="font-mono text-slate-800 dark:text-slate-200">₱{recall.installmentAmount.toLocaleString()}</strong>
+                          </span>
+                          {recall.downpayment > 0 && (
+                            <span>
+                              Downpayment: ₱{recall.downpayment.toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Appointment & Recall Status Box */}
+                      <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 flex flex-col justify-between space-y-2">
+                        {isBooked && recall.upcomingAppt ? (
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">
+                              Upcoming Visit Scheduled
+                            </span>
+                            <p className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                              <Calendar className="w-4 h-4 text-emerald-600" />
+                              <span>
+                                {new Date(recall.upcomingAppt.start_time).toLocaleDateString(undefined, {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })} @ {formatTime12h(recall.upcomingAppt.start_time.split("T")[1]?.substring(0, 5))}
+                              </span>
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              With Dr. {recall.upcomingAppt.dentist?.full_name || "Assigned Dentist"}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <span className={`text-[10px] font-bold uppercase tracking-wider block ${
+                              isOverdue ? "text-rose-600" : isDue ? "text-amber-600" : "text-slate-500"
+                            }`}>
+                              {isOverdue ? "Adjustment Overdue" : isDue ? "Adjustment Due for Booking" : "Adjustment Visit Cycle"}
+                            </span>
+                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                              {recall.lastCompletedAppt
+                                ? `Last adjustment on ${new Date(recall.lastCompletedAppt.start_time).toLocaleDateString()} (${recall.daysSinceLast} days ago)`
+                                : `Contract started on ${new Date(recall.baselineDate).toLocaleDateString()} (${recall.daysSinceLast} days ago)`}
+                            </p>
+                            <p className="text-[11px] text-slate-500">
+                              {recall.standingScheduleText
+                                ? `Patient standing preference: ${recall.standingScheduleText}`
+                                : "Standard 4-week adjustment cycle recommended."}
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-[11px] text-slate-500 flex items-center justify-between">
+                          <span>
+                            Frequency: <strong>{recall.bill.frequency === "per_visit" ? "Per Visit Adjustment" : "Monthly Installment"}</strong>
+                          </span>
+                          {recall.bill.appointment?.dentist?.full_name && (
+                            <span>
+                              Attending: Dr. {recall.bill.appointment.dentist.full_name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Actions Row */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                      <div className="text-[11px] text-slate-500">
+                        {isBooked ? (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Appointment confirmed. Collect payment via POS upon arrival.
+                          </span>
+                        ) : (
+                          <span className={`${isOverdue ? "text-rose-600 font-semibold" : isDue ? "text-amber-600 font-semibold" : "text-slate-500"}`}>
+                            {isOverdue || isDue ? "Action required: Call patient to book their monthly adjustment visit." : "Patient is within standard monthly window."}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Statement Button */}
+                        <button
+                          onClick={() => {
+                            setReceiptBill(recall.bill);
+                            setIsReceiptOpen(true);
+                          }}
+                          className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Statement</span>
+                        </button>
+
+                        {/* POS Payment Button */}
+                        {recall.balanceDue > 0 && (
+                          <button
+                            onClick={() => handleOpenPayment(recall.bill)}
+                            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 hover:bg-slate-50 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                          >
+                            <QrCode className="w-3.5 h-3.5 text-teal-600" />
+                            <span>Pay POS (₱{recall.installmentAmount.toLocaleString()})</span>
+                          </button>
+                        )}
+
+                        {/* Call & Book Next Visit Button */}
+                        {!isBooked ? (
+                          <button
+                            onClick={() => handleBookRecallVisit(recall)}
+                            className="px-4 py-1.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                          >
+                            <CalendarPlus className="w-3.5 h-3.5" />
+                            <span>Call & Book Next Visit</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleBookRecallVisit(recall)}
+                            className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <Calendar className="w-3.5 h-3.5" />
+                            <span>Book Another Visit</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Recalls Pagination */}
+              <Pagination
+                currentPage={recallsPage}
+                totalPages={Math.max(1, Math.ceil(filteredRecalls.length / recallsPageSize))}
+                totalItems={filteredRecalls.length}
+                pageSize={recallsPageSize}
+                onPageChange={setRecallsPage}
+                itemName="installment plans"
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -966,6 +1844,7 @@ function SecretaryPortalContent() {
                     </button>
                     <button
                       onClick={() => {
+                        resetApptModalState();
                         setApptInitialPatientId(p.id);
                         setIsApptModalOpen(true);
                       }}
@@ -1025,11 +1904,7 @@ function SecretaryPortalContent() {
                 Financial Ledger & POS Terminal
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Live feed from{" "}
-                <code className="font-mono text-teal-600">
-                  outstanding_balances
-                </code>{" "}
-                view. Trigger-synced bill statuses.
+                Manage clinic patient accounts, view receivables, and process POS payments.
               </p>
             </div>
             <button
@@ -1053,11 +1928,7 @@ function SecretaryPortalContent() {
                   Outstanding Receivables
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Real-time PostgreSQL{" "}
-                  <code className="font-mono text-teal-600">
-                    outstanding_balances
-                  </code>{" "}
-                  view
+                  Patients with pending and unsettled balances
                 </p>
               </div>
               <Link
@@ -1113,13 +1984,10 @@ function SecretaryPortalContent() {
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs p-5 space-y-4">
             <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-                All Invoices & Trigger-Synced Statuses
+                Invoice History & Payment Statuses
               </h3>
               <p className="text-xs text-slate-500">
-                Statuses automatically updated by{" "}
-                <code className="font-mono text-teal-600">
-                  trg_payment_sync_bill
-                </code>
+                All issued clinic invoices and real-time payment records
               </p>
             </div>
 
@@ -1318,12 +2186,16 @@ function SecretaryPortalContent() {
       {/* ── MODALS ── */}
       <AppointmentModal
         isOpen={isApptModalOpen}
-        onClose={() => setIsApptModalOpen(false)}
+        onClose={resetApptModalState}
         onSuccess={() => {
           showToast("Appointment successfully booked!", "success");
+          resetApptModalState();
           triggerRefresh();
         }}
         initialPatientId={apptInitialPatientId}
+        initialNotes={apptInitialNotes}
+        initialTime={apptInitialTime}
+        standingScheduleNote={apptStandingSchedule}
       />
       <PatientRegistrationModal
         isOpen={isPatientModalOpen}
@@ -1366,6 +2238,7 @@ function SecretaryPortalContent() {
           setIsCreateBillOpen(true);
         }}
         onOpenApptModal={(patId) => {
+          resetApptModalState();
           setApptInitialPatientId(patId);
           setIsApptModalOpen(true);
         }}
@@ -1384,6 +2257,17 @@ function SecretaryPortalContent() {
           setIsMergeOpen(false);
         }}
         preselectedDupId={mergePreselectedDupId}
+      />
+      <ConfirmRescheduleModal
+        isOpen={isConfirmRescheduleOpen}
+        onClose={() => {
+          setIsConfirmRescheduleOpen(false);
+          setSelectedApptForConfirm(null);
+        }}
+        onSuccess={triggerRefresh}
+        appointment={selectedApptForConfirm}
+        dentists={dentists}
+        branches={branches}
       />
     </div>
   );

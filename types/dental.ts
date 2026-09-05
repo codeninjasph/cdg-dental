@@ -14,6 +14,21 @@ export interface Branch {
   created_at: string;
 }
 
+export interface BranchSchedule {
+  id?: string;
+  branch_id: string;
+  day_of_week: number; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  is_open: boolean;
+  open_time: string; // e.g. "09:00"
+  close_time: string; // e.g. "18:00"
+  has_break: boolean;
+  break_start?: string | null; // e.g. "12:00"
+  break_end?: string | null; // e.g. "13:00"
+  slot_duration_minutes: number; // e.g. 30, 45, 60
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Profile {
   id: string;
   role: UserRole;
@@ -90,6 +105,15 @@ export interface PatientDocument {
   created_at: string;
 }
 
+export type InstallmentPlanType = "orthodontics" | "implants" | "prosthodontics" | "general";
+
+export interface InstallmentPreferredSchedule {
+  standing_day?: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday";
+  timing?: "1st_week" | "2nd_week" | "3rd_week" | "4th_week" | "every_4_weeks" | "custom";
+  preferred_time?: string;
+  notes?: string;
+}
+
 export interface TreatmentBill {
   id: string;
   invoice_number: string;
@@ -101,6 +125,13 @@ export interface TreatmentBill {
   status: BillStatus;
   due_date?: string | null;
   notes?: string | null;
+  is_installment?: boolean;
+  plan_type?: InstallmentPlanType | null;
+  downpayment_amount?: number;
+  installment_amount?: number;
+  total_installments?: number;
+  frequency?: "per_visit" | "monthly" | "milestone";
+  preferred_schedule?: InstallmentPreferredSchedule | null;
   created_at: string;
   patient?: Patient;
   payments?: PaymentLog[];
@@ -129,5 +160,13 @@ export interface OutstandingBalance {
   total_paid: number;
   balance_due: number;
   status: BillStatus;
+  is_installment?: boolean;
+  plan_type?: InstallmentPlanType | null;
+  downpayment_amount?: number;
+  installment_amount?: number;
+  total_installments?: number;
+  frequency?: "per_visit" | "monthly" | "milestone";
+  preferred_schedule?: InstallmentPreferredSchedule | null;
   created_at: string;
 }
+

@@ -479,7 +479,7 @@ export default function DashboardPage() {
                 <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">
                   Outstanding Balances
                 </h3>
-                <p className="text-xs text-slate-500">Live PostgreSQL ledger</p>
+                <p className="text-xs text-slate-500">Live clinic receivables</p>
               </div>
               <Link
                 href="/billing"

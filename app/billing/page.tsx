@@ -218,7 +218,8 @@ export default function BillingPage() {
                     ₱{Number(b.balance_due).toLocaleString()}
                   </span>
                   <button
-                    onClick={() =>
+                    onClick={() => {
+                      const fullBill = bills.find((item) => item.id === b.bill_id);
                       setActivePaymentBill({
                         id: b.bill_id,
                         invoice_number: b.invoice_number,
@@ -226,8 +227,16 @@ export default function BillingPage() {
                         net_amount: Number(b.net_amount),
                         total_paid: Number(b.total_paid),
                         balance_due: Number(b.balance_due),
-                      })
-                    }
+                        is_installment: b.is_installment ?? fullBill?.is_installment,
+                        plan_type: b.plan_type ?? fullBill?.plan_type,
+                        downpayment_amount: (b.downpayment_amount ?? fullBill?.downpayment_amount) ? Number(b.downpayment_amount ?? fullBill?.downpayment_amount) : undefined,
+                        installment_amount: (b.installment_amount ?? fullBill?.installment_amount) ? Number(b.installment_amount ?? fullBill?.installment_amount) : undefined,
+                        total_installments: (b.total_installments ?? fullBill?.total_installments) ? Number(b.total_installments ?? fullBill?.total_installments) : undefined,
+                        frequency: b.frequency ?? fullBill?.frequency,
+                        preferred_schedule: b.preferred_schedule ?? fullBill?.preferred_schedule,
+                        payments: fullBill?.payments,
+                      });
+                    }}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-all"
                   >
                     <QrCode className="w-3.5 h-3.5" />
@@ -303,7 +312,14 @@ export default function BillingPage() {
                           className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
                         >
                           <td className="py-3.5 px-4 font-mono font-bold text-slate-800 dark:text-slate-200">
-                            {b.invoice_number}
+                            <div className="flex flex-col items-start gap-1">
+                              <span>{b.invoice_number}</span>
+                              {b.is_installment && (
+                                <span className="text-[10px] px-1.5 py-0.2 rounded font-sans font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-200">
+                                  {b.plan_type ? b.plan_type.toUpperCase() : "INSTALLMENT"}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3.5 px-4">
                             <Link
@@ -340,6 +356,14 @@ export default function BillingPage() {
                                     net_amount: Number(b.net_amount),
                                     total_paid: totalPaidOnBill,
                                     balance_due: bal,
+                                    is_installment: b.is_installment,
+                                    plan_type: b.plan_type,
+                                    downpayment_amount: b.downpayment_amount ? Number(b.downpayment_amount) : undefined,
+                                    installment_amount: b.installment_amount ? Number(b.installment_amount) : undefined,
+                                    total_installments: b.total_installments ? Number(b.total_installments) : undefined,
+                                    frequency: b.frequency,
+                                    preferred_schedule: b.preferred_schedule,
+                                    payments: b.payments,
                                   })
                                 }
                                 className="px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold text-[11px] shadow-xs"

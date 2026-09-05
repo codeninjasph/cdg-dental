@@ -20,19 +20,23 @@ import {
   Info,
   Building2,
   Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 
 export function LoginForm() {
-  const [email, setEmail] = useState("");
+  const searchParams = useSearchParams();
+  const redirectTarget = searchParams.get("redirect");
+  const reason = searchParams.get("reason");
+  const isActivated = searchParams.get("activated") === "true";
+  const initialEmail = searchParams.get("email") || "";
+
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirectTarget = searchParams.get("redirect");
-  const reason = searchParams.get("reason");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,6 +148,15 @@ export function LoginForm() {
           <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <span>
             Staff registration is by administrator invitation only. If you received an invite link, please use the exact link sent to your email.
+          </span>
+        </div>
+      )}
+
+      {isActivated && (
+        <div className="mb-5 p-3.5 rounded-2xl bg-teal-50 border border-teal-200 flex items-start gap-2.5 text-teal-800 text-xs leading-relaxed animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+          <span>
+            <strong>Account Activated!</strong> Your staff credentials have been configured. Please enter your password to sign in.
           </span>
         </div>
       )}

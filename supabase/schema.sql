@@ -38,6 +38,25 @@ CREATE TABLE IF NOT EXISTS branches (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 3.1. BRANCH OPERATING SCHEDULES & HOURS
+CREATE TABLE IF NOT EXISTS branch_schedules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    day_of_week INT NOT NULL CHECK (day_of_week BETWEEN 0 AND 6), -- 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    is_open BOOLEAN NOT NULL DEFAULT true,
+    open_time TIME NOT NULL DEFAULT '09:00',
+    close_time TIME NOT NULL DEFAULT '18:00',
+    has_break BOOLEAN NOT NULL DEFAULT true,
+    break_start TIME DEFAULT '12:00',
+    break_end TIME DEFAULT '13:00',
+    slot_duration_minutes INT NOT NULL DEFAULT 60 CHECK (slot_duration_minutes IN (15, 30, 45, 60, 90, 120)),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(branch_id, day_of_week)
+);
+
+CREATE INDEX IF NOT EXISTS idx_branch_schedules_lookup ON branch_schedules(branch_id, day_of_week);
+
 -- 4. USER PROFILES
 CREATE TABLE IF NOT EXISTS profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -157,6 +176,13 @@ CREATE TABLE IF NOT EXISTS treatment_bills (
     status bill_status DEFAULT 'unpaid',
     due_date DATE,
     notes TEXT,
+    is_installment BOOLEAN DEFAULT false,
+    plan_type TEXT,
+    downpayment_amount NUMERIC(10, 2) DEFAULT 0.00,
+    installment_amount NUMERIC(10, 2) DEFAULT 0.00,
+    total_installments INTEGER DEFAULT 1,
+    frequency TEXT DEFAULT 'per_visit',
+    preferred_schedule JSONB DEFAULT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -178,6 +204,7 @@ CREATE INDEX IF NOT EXISTS idx_payments_bill ON payment_logs(bill_id);
 CREATE INDEX IF NOT EXISTS idx_payments_logged ON payment_logs(logged_at DESC);
 
 -- 11. REAL-TIME OUTSTANDING BALANCES VIEW
+DROP VIEW IF EXISTS outstanding_balances CASCADE;
 CREATE OR REPLACE VIEW outstanding_balances AS
 SELECT 
     b.id AS bill_id,
@@ -190,11 +217,21 @@ SELECT
     COALESCE(SUM(l.amount_logged), 0.00) AS total_paid,
     (b.net_amount - COALESCE(SUM(l.amount_logged), 0.00)) AS balance_due,
     b.status,
+    b.is_installment,
+    b.plan_type,
+    b.downpayment_amount,
+    b.installment_amount,
+    b.total_installments,
+    b.frequency,
+    b.preferred_schedule,
     b.created_at
 FROM treatment_bills b
 JOIN patients p ON b.patient_id = p.id
 LEFT JOIN payment_logs l ON b.id = l.bill_id
-GROUP BY b.id, b.invoice_number, b.patient_id, p.first_name, p.last_name, p.phone, b.net_amount, b.status, b.created_at
+GROUP BY 
+    b.id, b.invoice_number, b.patient_id, p.first_name, p.last_name, p.phone,
+    b.net_amount, b.status, b.is_installment, b.plan_type, b.downpayment_amount,
+    b.installment_amount, b.total_installments, b.frequency, b.preferred_schedule, b.created_at
 HAVING (b.net_amount - COALESCE(SUM(l.amount_logged), 0.00)) > 0;
 
 -- 12. AUTOMATIC BILL STATUS RECALCULATION TRIGGER
@@ -292,3 +329,8 @@ CREATE POLICY "Staff can upload patient documents" ON patient_documents FOR INSE
 
 CREATE POLICY "Staff can view and manage bills" ON treatment_bills FOR ALL TO authenticated USING (true);
 CREATE POLICY "Staff can view and record payments" ON payment_logs FOR ALL TO authenticated USING (true);
+
+ALTER TABLE branch_schedules ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can view branch schedules" ON branch_schedules FOR SELECT USING (true);
+CREATE POLICY "Admins can manage branch schedules" ON branch_schedules FOR ALL TO authenticated USING (get_my_role() = 'admin');
+

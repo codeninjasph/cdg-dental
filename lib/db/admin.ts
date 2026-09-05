@@ -1,7 +1,7 @@
 import { Pool } from "pg";
 import crypto from "crypto";
 import { normalizeRole } from "@/lib/supabase/get-user-role";
-import { UserRole } from "@/types/dental";
+import { UserRole, BranchSchedule } from "@/types/dental";
 import { StaffUserRecord, MASTER_ADMIN_ID, MASTER_ADMIN_EMAIL } from "@/types/admin";
 
 export { MASTER_ADMIN_ID, MASTER_ADMIN_EMAIL };
@@ -206,6 +206,95 @@ export async function inviteStaffUser({
   };
 
   return { user, inviteUrl };
+}
+
+/**
+ * Activate invited staff user by validating confirmation_token and setting password
+ */
+export async function activateInvitedStaffUser({
+  email,
+  token,
+  password,
+}: {
+  email: string;
+  token: string;
+  password: string;
+}): Promise<{ success: boolean; role: string; fullName: string; email: string }> {
+  const db = getPool();
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanToken = token.trim();
+
+  if (!cleanEmail || !cleanToken || !password) {
+    throw new Error("Email, invitation token, and password are required.");
+  }
+
+  if (password.length < 6) {
+    throw new Error("Password must be at least 6 characters long.");
+  }
+
+  // 1. Find user in auth.users by email
+  const userQuery = await db.query(
+    `
+    SELECT 
+      u.id, 
+      u.email, 
+      u.confirmation_token, 
+      u.email_confirmed_at,
+      p.full_name, 
+      p.role
+    FROM auth.users u
+    LEFT JOIN public.profiles p ON p.id = u.id
+    WHERE LOWER(u.email) = $1
+    `,
+    [cleanEmail]
+  );
+
+  if (userQuery.rows.length === 0) {
+    throw new Error("No staff invitation found for this email address. Please contact your clinic administrator.");
+  }
+
+  const row = userQuery.rows[0];
+
+  // If already activated and confirmed with no pending token
+  if (row.email_confirmed_at && !row.confirmation_token) {
+    throw new Error("This account is already activated. Please sign in with your email and password.");
+  }
+
+  // Check confirmation token matches
+  if (!row.confirmation_token || row.confirmation_token !== cleanToken) {
+    throw new Error("Invalid or expired invitation link. Please request a new invitation from your administrator.");
+  }
+
+  // 2. Set permanent password and confirm email in auth.users
+  await db.query(
+    `
+    UPDATE auth.users
+    SET 
+      encrypted_password = extensions.crypt($1, extensions.gen_salt('bf', 10)),
+      email_confirmed_at = now(),
+      confirmation_token = NULL,
+      updated_at = now()
+    WHERE id = $2::uuid
+    `,
+    [password, row.id]
+  );
+
+  // 3. Ensure profile is marked active in public.profiles
+  await db.query(
+    `
+    UPDATE public.profiles
+    SET is_active = true
+    WHERE id = $1::uuid
+    `,
+    [row.id]
+  );
+
+  return {
+    success: true,
+    role: row.role || "secretary",
+    fullName: row.full_name || cleanEmail,
+    email: cleanEmail,
+  };
 }
 
 /**
@@ -873,3 +962,144 @@ export async function deleteDentistAdmin(id: string): Promise<void> {
     throw new Error("Dentist record not found.");
   }
 }
+
+export interface BranchScheduleInput {
+  day_of_week: number;
+  is_open: boolean;
+  open_time: string;
+  close_time: string;
+  has_break: boolean;
+  break_start?: string | null;
+  break_end?: string | null;
+  slot_duration_minutes: number;
+}
+
+/**
+ * Fetch 7-day operating schedule for a specific clinic branch
+ */
+export async function getBranchSchedulesAdmin(branchId: string): Promise<BranchSchedule[]> {
+  const db = getPool();
+  const query = `
+    SELECT 
+      id,
+      branch_id,
+      day_of_week,
+      is_open,
+      open_time::text,
+      close_time::text,
+      has_break,
+      break_start::text,
+      break_end::text,
+      slot_duration_minutes,
+      created_at,
+      updated_at
+    FROM public.branch_schedules
+    WHERE branch_id = $1::uuid
+    ORDER BY day_of_week ASC;
+  `;
+
+  const { rows } = await db.query(query, [branchId]);
+  const rowMap = new Map<number, any>();
+  for (const r of rows) {
+    rowMap.set(r.day_of_week, r);
+  }
+
+  // Ensure all 7 days (0..6) are represented
+  const fullWeek: BranchSchedule[] = [];
+  for (let day = 0; day <= 6; day++) {
+    const existing = rowMap.get(day);
+    if (existing) {
+      fullWeek.push({
+        id: existing.id,
+        branch_id: existing.branch_id,
+        day_of_week: existing.day_of_week,
+        is_open: Boolean(existing.is_open),
+        open_time: existing.open_time ? existing.open_time.slice(0, 5) : "09:00",
+        close_time: existing.close_time ? existing.close_time.slice(0, 5) : "18:00",
+        has_break: Boolean(existing.has_break),
+        break_start: existing.break_start ? existing.break_start.slice(0, 5) : "12:00",
+        break_end: existing.break_end ? existing.break_end.slice(0, 5) : "13:00",
+        slot_duration_minutes: Number(existing.slot_duration_minutes || 60),
+        created_at: existing.created_at,
+        updated_at: existing.updated_at,
+      });
+    } else {
+      fullWeek.push({
+        branch_id: branchId,
+        day_of_week: day,
+        is_open: day !== 0,
+        open_time: "09:00",
+        close_time: "18:00",
+        has_break: true,
+        break_start: "12:00",
+        break_end: "13:00",
+        slot_duration_minutes: 60,
+      });
+    }
+  }
+
+  return fullWeek;
+}
+
+/**
+ * Save or update 7-day operating schedule for a branch
+ */
+export async function saveBranchSchedulesAdmin(
+  branchId: string,
+  schedules: BranchScheduleInput[]
+): Promise<BranchSchedule[]> {
+  const db = getPool();
+
+  for (const item of schedules) {
+    const query = `
+      INSERT INTO public.branch_schedules (
+        branch_id, day_of_week, is_open, open_time, close_time,
+        has_break, break_start, break_end, slot_duration_minutes, updated_at
+      )
+      VALUES ($1::uuid, $2, $3, $4::time, $5::time, $6, $7::time, $8::time, $9, NOW())
+      ON CONFLICT (branch_id, day_of_week) DO UPDATE SET
+        is_open = EXCLUDED.is_open,
+        open_time = EXCLUDED.open_time,
+        close_time = EXCLUDED.close_time,
+        has_break = EXCLUDED.has_break,
+        break_start = EXCLUDED.break_start,
+        break_end = EXCLUDED.break_end,
+        slot_duration_minutes = EXCLUDED.slot_duration_minutes,
+        updated_at = NOW();
+    `;
+
+    await db.query(query, [
+      branchId,
+      item.day_of_week,
+      item.is_open,
+      item.open_time,
+      item.close_time,
+      item.has_break !== undefined ? item.has_break : true,
+      item.break_start || null,
+      item.break_end || null,
+      item.slot_duration_minutes || 60,
+    ]);
+  }
+
+  return getBranchSchedulesAdmin(branchId);
+}
+
+/**
+ * Replicate one branch's operating hours across all other registered branches
+ */
+export async function copySchedulesToAllBranches(sourceBranchId: string): Promise<number> {
+  const db = getPool();
+  const sourceSchedules = await getBranchSchedulesAdmin(sourceBranchId);
+
+  const { rows: otherBranches } = await db.query(
+    "SELECT id FROM public.branches WHERE id != $1::uuid AND is_active = true;",
+    [sourceBranchId]
+  );
+
+  for (const b of otherBranches) {
+    await saveBranchSchedulesAdmin(b.id, sourceSchedules);
+  }
+
+  return otherBranches.length;
+}
+

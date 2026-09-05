@@ -264,7 +264,7 @@ export function ClinicNavbar() {
                         </button>
                       ))}
                       {isAdmin && (
-                        <div className="p-2 border-t border-white/[0.06] bg-slate-950/40">
+                        <div className="p-2 border-t border-white/[0.06] bg-slate-950/40 space-y-1">
                           <Link
                             href="/admin/branches"
                             onClick={() => setBranchOpen(false)}
@@ -272,6 +272,14 @@ export function ClinicNavbar() {
                           >
                             <Building2 className="w-3.5 h-3.5" />
                             <span>Manage Clinic Branches</span>
+                          </Link>
+                          <Link
+                            href="/admin/hours"
+                            onClick={() => setBranchOpen(false)}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors cursor-pointer"
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>Dental Hours & Schedules</span>
                           </Link>
                         </div>
                       )}
@@ -402,6 +410,14 @@ export function ClinicNavbar() {
                       >
                         <Building2 className="w-3.5 h-3.5 text-teal-400" />
                         <span>Clinic Branches & Facilities</span>
+                      </Link>
+                      <Link
+                        href="/admin/hours"
+                        onClick={() => setRoleOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-cyan-300 hover:text-white bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 font-bold transition-all cursor-pointer"
+                      >
+                        <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Dental Hours & Schedules</span>
                       </Link>
                       <Link
                         href="/admin/dentists"

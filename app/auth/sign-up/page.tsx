@@ -9,7 +9,14 @@ import { ShieldAlert, ArrowLeft, MailCheck, Lock } from "lucide-react";
 
 function SignUpContent() {
   const searchParams = useSearchParams();
+  const token =
+    searchParams.get("token") ||
+    searchParams.get("code") ||
+    searchParams.get("access_token") ||
+    "";
+  const emailParam = searchParams.get("email") || "";
   const hasToken =
+    !!token ||
     searchParams.has("token") ||
     searchParams.has("code") ||
     searchParams.has("access_token") ||
@@ -64,11 +71,18 @@ function SignUpContent() {
           Complete Staff Registration
         </h2>
         <p className="text-xs text-slate-600 mt-1">
-          Set up your practitioner password to activate your clinic profile.
+          {emailParam ? (
+            <>
+              Practitioner account setup for{" "}
+              <strong className="text-teal-700 font-semibold">{emailParam}</strong>.
+            </>
+          ) : (
+            "Set up your practitioner password to activate your clinic profile."
+          )}
         </p>
       </div>
       <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xl">
-        <SignUpForm />
+        <SignUpForm invitedEmail={emailParam} inviteToken={token} />
       </div>
     </div>
   );

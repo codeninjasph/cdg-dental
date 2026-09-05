@@ -144,7 +144,7 @@ export default function AdminBranchesPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* ── Admin Navigation Suite Tabs ── */}
-      <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-900 rounded-2xl w-fit border border-slate-200/80 dark:border-slate-800">
+      <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-900 rounded-2xl w-fit border border-slate-200/80 dark:border-slate-800">
         <Link
           href="/admin/users"
           className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -156,6 +156,13 @@ export default function AdminBranchesPage() {
           <Building2 className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
           <span>Clinic Branches & Locations</span>
         </div>
+        <Link
+          href="/admin/hours"
+          className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+        >
+          <Clock className="w-3.5 h-3.5 text-slate-500" />
+          <span>Dental Hours & Open Days</span>
+        </Link>
         <Link
           href="/admin/dentists"
           className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"

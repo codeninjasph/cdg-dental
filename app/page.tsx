@@ -169,7 +169,7 @@ export default function HomePage() {
                     Zero Booking Conflicts
                   </span>
                   <span className="text-[10px] text-slate-500 block">
-                    Postgres Double-Booking Engine
+                    Conflict-Free Scheduling Engine
                   </span>
                 </div>
               </div>

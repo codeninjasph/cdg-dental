@@ -12,6 +12,7 @@ import {
   X,
   FileText,
   MapPin,
+  CalendarClock,
 } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
 
@@ -20,6 +21,9 @@ interface AppointmentModalProps {
   onClose: () => void;
   onSuccess: () => void;
   initialPatientId?: string;
+  initialNotes?: string;
+  initialTime?: string;
+  standingScheduleNote?: string;
 }
 
 export function AppointmentModal({
@@ -27,6 +31,9 @@ export function AppointmentModal({
   onClose,
   onSuccess,
   initialPatientId,
+  initialNotes,
+  initialTime,
+  standingScheduleNote,
 }: AppointmentModalProps) {
   const { branches, staffList, showToast, activeBranch } = useClinic();
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -64,10 +71,13 @@ export function AppointmentModal({
     }
     if (isOpen) {
       if (!date) setDate(new Date().toISOString().split("T")[0]);
+      if (initialPatientId) setPatientId(initialPatientId);
+      if (initialNotes) setNotes(initialNotes);
+      if (initialTime) setStartTime(initialTime);
       loadPatients();
       setErrorMessage(null);
     }
-  }, [isOpen, initialPatientId]);
+  }, [isOpen, initialPatientId, initialNotes, initialTime]);
 
   if (!isOpen) return null;
 
@@ -139,6 +149,14 @@ export function AppointmentModal({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {standingScheduleNote && (
+            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 flex items-center gap-2 text-amber-800 dark:text-amber-200 text-xs animate-in fade-in">
+              <CalendarClock className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                <strong>Patient's Standing Schedule:</strong> {standingScheduleNote}
+              </span>
+            </div>
+          )}
           {errorMessage && (
             <div className="flex items-start gap-2.5 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-xs text-rose-800 dark:text-rose-200">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />

@@ -97,8 +97,8 @@ export function PatientPreviewModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden max-h-[90vh] flex flex-col">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-6xl w-full overflow-hidden max-h-[94vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70">
           <div className="flex items-center gap-3">
@@ -114,7 +114,7 @@ export function PatientPreviewModal({
                 </span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Front-desk chart preview • RLS-enforced clinical boundaries
+                Front-desk patient summary & record preview
               </p>
             </div>
           </div>
@@ -270,7 +270,7 @@ export function PatientPreviewModal({
                   <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-center gap-2.5 text-amber-800 dark:text-amber-200 text-xs">
                     <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>
-                      <strong>Database RLS Policy:</strong> Only licensed dentists and administrators have permission to log clinical procedures. Secretaries can view treatment charges for accurate cashier billing.
+                      <strong>Clinical Access Notice:</strong> Only licensed dentists and administrators have permission to log clinical procedures. Front-desk staff can review completed treatment charges for cashier billing.
                     </span>
                   </div>
 
@@ -333,18 +333,25 @@ export function PatientPreviewModal({
                             className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 flex items-center justify-between"
                           >
                             <div>
-                              <span className="font-mono font-bold text-teal-600 dark:text-teal-400">
-                                {b.invoice_number}
-                              </span>
-                              <span
-                                className={`ml-2 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                                  due <= 0
-                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                                    : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                                }`}
-                              >
-                                {b.status}
-                              </span>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-mono font-bold text-teal-600 dark:text-teal-400">
+                                  {b.invoice_number}
+                                </span>
+                                <span
+                                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                                    due <= 0
+                                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                                      : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                                  }`}
+                                >
+                                  {b.status}
+                                </span>
+                                {b.is_installment && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-200">
+                                    {b.plan_type ? b.plan_type.toUpperCase() : "INSTALLMENT"}
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-[11px] text-slate-500 mt-0.5">
                                 {new Date(b.created_at).toLocaleDateString()} • Net: ₱
                                 {Number(b.net_amount).toLocaleString()}
@@ -378,7 +385,7 @@ export function PatientPreviewModal({
                     </span>
                   </div>
 
-                  <div className="overflow-x-auto p-2 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <div className="overflow-x-auto rounded-2xl">
                     <ToothChart
                       patientId={patientId}
                       records={toothRecords}

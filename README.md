@@ -24,9 +24,11 @@ A unified command center for clinic receptionists and secretaries organized into
 - 📁 **Intake Documents Vault**: Secure document intake for patient consent forms, signed waivers, ID attachments, and medical clearances.
 
 ### 4. 🛡️ Master Administration (`/admin`)
-- **Staff Directory & Access Control**: Administrator invite engine, role management (`dentist`, `secretary`, `admin`), and security oversight.
+- **Staff Directory & Access Control** (`/admin/users`): Administrator invite engine, role management (`dentist`, `secretary`, `admin`), and security oversight.
+- **Branch & Facility Management** (`/admin/branches`): Multi-clinic location registration, facility contact directory, and branch activation toggles.
+- **Dental Hours & Operating Days** (`/admin/hours`): Manage branch opening/closing hours, midday lunch intermissions, slot duration intervals (30m to 120m), and open/closed days of the week with real-time public booking slot preview.
+- **Dentist Directory & Content** (`/admin/dentists`): Practitioner bio, specialty credentials, license verification, and assigned clinic days.
 - **Role Viewport Switcher**: Allows administrators to preview the system from the authentic perspective of any practitioner or receptionist without logging out.
-- **Branch Management**: Multi-clinic location configurations (Ortigas Center, BGC Premier, Cagayan de Oro).
 
 ---
 
