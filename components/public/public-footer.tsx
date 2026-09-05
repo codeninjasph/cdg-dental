@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Sparkles,
@@ -7,42 +10,77 @@ import {
   ShieldCheck,
   Building,
 } from "lucide-react";
-import { CDO_BRANCHES_DATA, CDO_SERVICES_DATA } from "@/lib/cdo-clinic-data";
+import { CDO_BRANCHES_DATA, CDO_DENTISTS_DATA, CDO_SERVICES_DATA } from "@/lib/cdo-clinic-data";
 
 export function PublicFooter() {
+  const [branchesList, setBranchesList] = useState(CDO_BRANCHES_DATA);
+  const [dentistsList, setDentistsList] = useState(CDO_DENTISTS_DATA);
+
+  useEffect(() => {
+    fetch("/api/public/clinic-data")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          if (Array.isArray(data.branches) && data.branches.length > 0) {
+            setBranchesList((prev) =>
+              data.branches.map((b: any) => {
+                const match = prev.find((p) => p.id === b.id);
+                return {
+                  id: b.id,
+                  name: b.name,
+                  shortName: b.shortName || (b.name.includes("—") ? b.name.split("—")[1].trim() : b.name),
+                  address: b.address || match?.address || "Cagayan de Oro City",
+                  phone: b.phone || match?.phone || "+63 88 850 1234",
+                  mobile: match?.mobile || "+63 917 123 4567",
+                  email: b.email || match?.email || "cdo@cdgdental.ph",
+                  hours: match?.hours || "Monday – Saturday: 9:00 AM – 6:00 PM",
+                  landmarks: match?.landmarks || "Strategically located dental hub in Cagayan de Oro.",
+                  parking: match?.parking || "Ample customer parking available on premises.",
+                };
+              })
+            );
+          }
+          if (Array.isArray(data.dentists) && data.dentists.length > 0) {
+            setDentistsList(data.dentists);
+          }
+        }
+      })
+      .catch((err) => console.error("Error loading footer clinic data:", err));
+  }, []);
+
   return (
     <footer id="branches" className="bg-slate-950 text-slate-300 border-t border-slate-800">
       {/* Branches Highlight Banner */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <span className="text-xs font-bold uppercase tracking-wider text-teal-400 bg-teal-950/60 border border-teal-800 px-3 py-1 rounded-full">
-            Two Convenient Hubs in Cagayan de Oro
+            {branchesList.length} Convenient Hubs in Cagayan de Oro
           </span>
           <h2 className="text-2xl sm:text-3xl font-black text-white mt-3">
             Visit Our CDO Dental Suites
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 mt-2">
-            Accessible hospital-grade dental suites strategically located in Downtown Lapasan and Uptown Pueblo de Oro.
+            Accessible hospital-grade dental suites strategically located across Downtown Lapasan, Uptown Pueblo de Oro, and Centrio Ayala Mall.
           </p>
         </div>
 
         {/* Branch Cards */}
-        <div className="grid md:grid-cols-2 gap-6 mb-16">
-          {CDO_BRANCHES_DATA.map((branch) => (
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${branchesList.length >= 3 ? "lg:grid-cols-3" : ""} gap-6 mb-16`}>
+          {branchesList.map((branch) => (
             <div
               key={branch.id}
               className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 hover:border-teal-500/50 transition-all flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center shrink-0">
                     <Building className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-base text-white">
+                    <h3 className="font-bold text-base text-white line-clamp-1">
                       {branch.name}
                     </h3>
-                    <span className="text-[11px] text-teal-400 font-medium">
+                    <span className="text-[11px] text-teal-400 font-medium line-clamp-1">
                       {branch.landmarks}
                     </span>
                   </div>
@@ -51,7 +89,7 @@ export function PublicFooter() {
                 <div className="space-y-2 text-xs text-slate-400 mt-4">
                   <div className="flex items-start gap-2.5">
                     <MapPin className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-                    <span>{branch.address}</span>
+                    <span className="line-clamp-2">{branch.address}</span>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <Clock className="w-4 h-4 text-slate-500 shrink-0" />
@@ -60,15 +98,15 @@ export function PublicFooter() {
                   <div className="flex items-center gap-2.5">
                     <Phone className="w-4 h-4 text-slate-500 shrink-0" />
                     <span className="font-semibold text-slate-200">
-                      Landline: {branch.phone} | Mobile: {branch.mobile}
+                      Landline: {branch.phone} {branch.mobile ? `| Mobile: ${branch.mobile}` : ""}
                     </span>
                   </div>
                 </div>
               </div>
 
               <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-xs">
-                <span className="text-slate-400 font-medium flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-teal-400" />
+                <span className="text-slate-400 font-medium flex items-center gap-1.5 line-clamp-1">
+                  <ShieldCheck className="w-4 h-4 text-teal-400 shrink-0" />
                   {branch.parking}
                 </span>
               </div>
@@ -121,26 +159,13 @@ export function PublicFooter() {
               Specialist Doctors
             </h4>
             <ul className="space-y-2 text-xs text-slate-400">
-              <li>
-                <Link href="/dentists" className="hover:text-teal-300 transition-colors">
-                  Dr. Kenneth Galve (Cosmetics & Veneers)
-                </Link>
-              </li>
-              <li>
-                <Link href="/dentists" className="hover:text-teal-300 transition-colors">
-                  Dr. Andrea Reyes (Orthodontics & Aligners)
-                </Link>
-              </li>
-              <li>
-                <Link href="/dentists" className="hover:text-teal-300 transition-colors">
-                  Dr. Marcus Lim (Periodontics & Implants)
-                </Link>
-              </li>
-              <li>
-                <Link href="/dentists" className="hover:text-teal-300 transition-colors">
-                  Dr. Sophia Valdez (General & Endodontics)
-                </Link>
-              </li>
+              {dentistsList.slice(0, 5).map((d) => (
+                <li key={d.id || d.name}>
+                  <Link href="/dentists" className="hover:text-teal-300 transition-colors">
+                    {d.name.split(",")[0]} {d.specialty ? `(${d.specialty.split("&")[0].trim()})` : ""}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -167,10 +192,10 @@ export function PublicFooter() {
           <p>
             © {new Date().getFullYear()} CDG Dental Clinic Cagayan de Oro. All rights reserved.
           </p>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <span>PRC Accredited Dental Practice</span>
             <span>•</span>
-            <span>Limketkai & Pueblo de Oro CDO</span>
+            <span>{branchesList.map((b) => b.shortName || b.name).join(" • ")}</span>
           </div>
         </div>
       </div>

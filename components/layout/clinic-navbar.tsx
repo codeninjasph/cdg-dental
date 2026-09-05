@@ -19,6 +19,7 @@ import {
   LogOut,
   Clock,
   FileText,
+  BarChart3,
 } from "lucide-react";
 import { UserRole } from "@/types/dental";
 import { createClient } from "@/lib/supabase/client";
@@ -60,28 +61,28 @@ export function ClinicNavbar() {
 
   // Dedicated Secretary Workstation Links (Option A: Direct module access)
   const secretaryNavLinks = [
-    { href: "/secretary?tab=queue", tab: "queue", label: "Queue & Check-In", icon: Clock },
-    { href: "/secretary?tab=patients", tab: "patients", label: "Patient Records", icon: Users },
-    { href: "/secretary?tab=billing", tab: "billing", label: "Billing & POS", icon: CreditCard },
-    { href: "/secretary?tab=documents", tab: "documents", label: "Documents", icon: FileText },
+    { href: "/secretary?tab=queue", tab: "queue", label: "Queue & Check-In", shortLabel: "Queue", icon: Clock },
+    { href: "/secretary?tab=patients", tab: "patients", label: "Patient Records", shortLabel: "Patients", icon: Users },
+    { href: "/secretary?tab=billing", tab: "billing", label: "Billing & POS", shortLabel: "Billing", icon: CreditCard },
+    { href: "/secretary?tab=documents", tab: "documents", label: "Documents", shortLabel: "Documents", icon: FileText },
   ];
 
   // Clinical Doctor Links
   const dentistNavLinks = [
-    { href: "/portal", label: "Doctor Dashboard", icon: LayoutDashboard },
-    { href: "/appointments", label: "Appointments", icon: Calendar },
-    { href: "/patients", label: "Patients", icon: Users },
-    { href: "/billing", label: "Billing & POS", icon: CreditCard },
+    { href: "/portal", label: "Doctor Dashboard", shortLabel: "Dashboard", icon: LayoutDashboard },
+    { href: "/appointments", label: "Appointments", shortLabel: "Appts", icon: Calendar },
+    { href: "/patients", label: "Patients", shortLabel: "Patients", icon: Users },
+    { href: "/billing", label: "Billing & POS", shortLabel: "Billing", icon: CreditCard },
   ];
 
   // System Administrator Master Links
   const adminNavLinks = [
-    { href: "/portal", label: "Doctor Portal", icon: LayoutDashboard },
-    { href: "/secretary", label: "Secretary Desk", icon: UserCheck },
-    { href: "/appointments", label: "Appointments", icon: Calendar },
-    { href: "/patients", label: "Patients", icon: Users },
-    { href: "/billing", label: "Billing & POS", icon: CreditCard },
-    { href: "/admin/users", label: "Staff & Access", icon: Shield },
+    { href: "/portal", label: "Doctor Portal", shortLabel: "Portal", icon: LayoutDashboard },
+    { href: "/secretary", label: "Secretary Desk", shortLabel: "Secretary", icon: UserCheck },
+    { href: "/appointments", label: "Appointments", shortLabel: "Appts", icon: Calendar },
+    { href: "/patients", label: "Patients", shortLabel: "Patients", icon: Users },
+    { href: "/billing", label: "Billing & POS", shortLabel: "Billing", icon: CreditCard },
+    { href: "/admin/users", label: "Staff & Access", shortLabel: "Staff", icon: Shield },
   ];
 
   const navLinks =
@@ -136,22 +137,22 @@ export function ClinicNavbar() {
   );
 
   return (
-    <header className="sticky top-0 z-40 w-full">
+    <header className="sticky top-0 z-40 w-full max-w-full overflow-x-clip">
       {/* Main bar */}
       <div className="bg-slate-950/95 backdrop-blur-xl border-b border-white/[0.06] shadow-2xl shadow-black/40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-[60px] gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+          <div className="flex items-center justify-between h-[60px] gap-2 lg:gap-3">
 
             {/* ── Logo ── */}
             <Link
               href={currentRole === "secretary" ? "/secretary" : "/portal"}
-              className="flex items-center gap-3 group shrink-0"
+              className="flex items-center gap-2.5 group shrink-0"
             >
               {/* Glowing tooth icon */}
               <div className="relative">
                 <div className="absolute inset-0 rounded-xl bg-teal-500/30 blur-md group-hover:blur-lg transition-all duration-300" />
-                <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-teal-400 via-teal-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-teal-500/30 group-hover:scale-105 group-hover:shadow-teal-400/50 transition-all duration-300">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white drop-shadow">
+                <div className="relative w-8 h-8 lg:w-9 lg:h-9 rounded-xl bg-gradient-to-br from-teal-400 via-teal-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-teal-500/30 group-hover:scale-105 group-hover:shadow-teal-400/50 transition-all duration-300">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 lg:w-5 lg:h-5 fill-white drop-shadow">
                     <path d="M12 2C9.2 2 7 4 7 7c0 2.2.6 4.5 1.2 6.5.5 1.8 1 4.5 1.5 6.5.3 1.2 1 1.5 1.5 1.5s1.2-.3 1.5-1.5c.5-2 1-4.7 1.5-6.5C14.8 11.5 15 9.2 15 7c0-3-2.2-5-3-5z" />
                     <path
                       d="M9 7.5C8 7 7.5 8 8 9c.5.8 1.5.5 2 0"
@@ -163,20 +164,20 @@ export function ClinicNavbar() {
                 </div>
               </div>
               <div>
-                <div className="text-sm font-extrabold tracking-tight text-white leading-none flex items-center gap-1.5">
+                <div className="text-xs sm:text-sm font-extrabold tracking-tight text-white leading-none flex items-center gap-1.5">
                   CDG DENTAL
                   <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-teal-400/20 text-teal-300 font-bold border border-teal-400/25 tracking-wider">
                     CLINIC
                   </span>
                 </div>
-                <div className="text-[10px] text-slate-500 font-medium leading-none mt-0.5">
+                <div className="text-[10px] text-slate-500 font-medium leading-none mt-0.5 hidden 2xl:block">
                   Practice Management System
                 </div>
               </div>
             </Link>
 
             {/* ── Nav Pills ── */}
-            <nav className="hidden md:flex items-center gap-0.5 bg-white/[0.04] border border-white/[0.07] rounded-2xl p-1 backdrop-blur-sm">
+            <nav className="hidden lg:flex items-center gap-0.5 bg-white/[0.04] border border-white/[0.07] rounded-2xl p-1 backdrop-blur-sm">
               {navLinks.map((link) => {
                 const Icon = link.icon;
                 const isActive = isLinkActive(link);
@@ -184,7 +185,8 @@ export function ClinicNavbar() {
                   <Link
                     key={link.href}
                     href={link.href}
-                    className={`relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 group ${
+                    title={link.label}
+                    className={`relative flex items-center gap-1.5 px-2.5 py-1.5 xl:px-3 xl:py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 group ${
                       isActive
                         ? "bg-teal-500/20 text-teal-300 shadow-inner shadow-teal-500/10"
                         : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
@@ -194,11 +196,12 @@ export function ClinicNavbar() {
                       <span className="absolute inset-0 rounded-xl ring-1 ring-teal-400/30" />
                     )}
                     <Icon
-                      className={`w-3.5 h-3.5 transition-colors ${
+                      className={`w-3.5 h-3.5 shrink-0 transition-colors ${
                         isActive ? "text-teal-400" : "text-slate-500 group-hover:text-slate-300"
                       }`}
                     />
-                    <span>{link.label}</span>
+                    <span className="hidden 2xl:inline whitespace-nowrap">{link.label}</span>
+                    <span className="inline 2xl:hidden whitespace-nowrap">{link.shortLabel || link.label}</span>
                     {isActive && (
                       <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-teal-400 rounded-full opacity-80" />
                     )}
@@ -208,7 +211,7 @@ export function ClinicNavbar() {
             </nav>
 
             {/* ── Controls ── */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 lg:gap-2 shrink-0">
 
               {/* Branch Dropdown */}
               {branches.length > 0 && (
@@ -218,16 +221,16 @@ export function ClinicNavbar() {
                       setBranchOpen((o) => !o);
                       setRoleOpen(false);
                     }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-xs font-medium text-slate-300 hover:text-white transition-all duration-200 cursor-pointer"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 lg:px-3 lg:py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-xs font-medium text-slate-300 hover:text-white transition-all duration-200 cursor-pointer"
                   >
                     <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                    <span className="max-w-[130px] truncate">
+                    <span className="max-w-[85px] xl:max-w-[120px] truncate text-xs">
                       {activeBranch?.name?.split("—")[1]?.trim() ??
                         activeBranch?.name ??
                         "Select Branch"}
                     </span>
                     <ChevronDown
-                      className={`w-3 h-3 text-slate-500 transition-transform duration-200 ${
+                      className={`w-3 h-3 text-slate-500 transition-transform duration-200 shrink-0 ${
                         branchOpen ? "rotate-180" : ""
                       }`}
                     />
@@ -300,21 +303,22 @@ export function ClinicNavbar() {
                       setRoleOpen((o) => !o);
                       setBranchOpen(false);
                     }}
-                    className={`flex items-center gap-2 pl-2.5 pr-3 py-2 rounded-xl border ${role.bg} ${role.glow} shadow-md text-xs font-semibold transition-all duration-200 cursor-pointer hover:brightness-125`}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 lg:py-2 rounded-xl border ${role.bg} ${role.glow} shadow-md text-xs font-semibold transition-all duration-200 cursor-pointer hover:brightness-125`}
                     title="Administrator Switcher: Toggle Active Role View"
                   >
                     <RoleIcon className={`w-3.5 h-3.5 shrink-0 ${role.color}`} />
-                    <div className="flex flex-col items-start leading-none">
-                      <span className="text-[9px] uppercase tracking-widest text-violet-400 font-bold flex items-center gap-1">
-                        Admin Mode {currentRole !== "admin" && `• ${currentRole.toUpperCase()}`}
+                    <div className="flex items-center gap-1.5 leading-none">
+                      <span className="text-[10px] uppercase tracking-wider text-violet-400 font-extrabold flex items-center gap-1">
+                        Admin
                         <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
                       </span>
-                      <span className={`text-xs font-bold ${role.color} mt-0.5`}>
-                        {role.label} ({currentStaff?.full_name?.split(",")[0] || currentStaff?.full_name || "Staff"})
+                      <span className="text-slate-500 text-[10px] hidden xl:inline">•</span>
+                      <span className={`text-xs font-bold ${role.color} truncate max-w-[80px] xl:max-w-[120px] hidden sm:inline`}>
+                        {role.label}
                       </span>
                     </div>
                     <ChevronDown
-                      className={`w-3 h-3 text-slate-500 transition-transform duration-200 ml-1 ${
+                      className={`w-3 h-3 text-slate-400 transition-transform duration-200 shrink-0 ${
                         roleOpen ? "rotate-180" : ""
                       }`}
                     />
@@ -322,15 +326,15 @@ export function ClinicNavbar() {
                 ) : (
                   // Non-Admin: Fixed Role Badge
                   <div
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${role.bg} ${role.glow} shadow-md text-xs font-semibold select-none`}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 lg:py-2 rounded-xl border ${role.bg} ${role.glow} shadow-md text-xs font-semibold select-none`}
                   >
                     <RoleIcon className={`w-3.5 h-3.5 shrink-0 ${role.color}`} />
-                    <div className="flex flex-col items-start leading-none">
-                      <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">
-                        Staff Role
+                    <div className="flex items-center gap-1.5 leading-none">
+                      <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold hidden sm:inline">
+                        Staff:
                       </span>
-                      <span className={`text-xs font-bold ${role.color} mt-0.5`}>
-                        {role.label} ({currentStaff?.full_name?.split(",")[0] || currentStaff?.full_name || "Staff"})
+                      <span className={`text-xs font-bold ${role.color} truncate max-w-[80px] xl:max-w-[120px]`}>
+                        {role.label}
                       </span>
                     </div>
                   </div>
@@ -345,8 +349,8 @@ export function ClinicNavbar() {
                           <Shield className="w-3 h-3" />
                           Role Viewport Switcher
                         </p>
-                        <p className="text-[10px] text-slate-400">
-                          Toggle viewing perspectives as Admin
+                        <p className="text-[10px] text-slate-400 truncate max-w-[180px]">
+                          {currentStaff?.full_name || "System Administrator"}
                         </p>
                       </div>
                       <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-mono font-bold">
@@ -428,6 +432,14 @@ export function ClinicNavbar() {
                         <span>Dentist Directory & Content</span>
                       </Link>
                       <Link
+                        href="/reports"
+                        onClick={() => setRoleOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-emerald-300 hover:text-white bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 font-bold transition-all cursor-pointer"
+                      >
+                        <BarChart3 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Financial Reports & Analytics</span>
+                      </Link>
+                      <Link
                         href="/"
                         onClick={() => setRoleOpen(false)}
                         className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-400 hover:text-slate-200 hover:bg-white/[0.05] transition-colors cursor-pointer"
@@ -449,17 +461,17 @@ export function ClinicNavbar() {
                   window.location.href = "/auth/login";
                 }}
                 title="Sign Out"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-rose-500/15 text-slate-400 hover:text-rose-300 border border-white/[0.08] hover:border-rose-500/30 text-xs font-semibold transition-all duration-200 cursor-pointer shadow-sm"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 lg:px-3 lg:py-2 rounded-xl bg-white/[0.04] hover:bg-rose-500/15 text-slate-400 hover:text-rose-300 border border-white/[0.08] hover:border-rose-500/30 text-xs font-semibold transition-all duration-200 cursor-pointer shadow-sm"
               >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Sign Out</span>
+                <LogOut className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden xl:inline">Sign Out</span>
               </button>
             </div>
           </div>
         </div>
 
         {/* ── Mobile Nav Pills ── */}
-        <div className="flex md:hidden items-center gap-1 px-4 pb-2.5 overflow-x-auto scrollbar-hide">
+        <div className="flex lg:hidden items-center gap-1 px-4 pb-2.5 overflow-x-auto scrollbar-hide">
           {navLinks.map((link) => {
             const Icon = link.icon;
             const isActive = isLinkActive(link);

@@ -20,6 +20,9 @@ import {
   Landmark,
   ChevronRight,
   Filter,
+  BarChart3,
+  Search,
+  Calendar,
 } from "lucide-react";
 
 export default function BillingPage() {
@@ -28,6 +31,8 @@ export default function BillingPage() {
   const [balances, setBalances] = useState<OutstandingBalance[]>([]);
   const [paymentLogs, setPaymentLogs] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<"all" | "today" | "this_week" | "this_month">("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
 
   // POS Payment Modal State
@@ -66,8 +71,7 @@ export default function BillingPage() {
           bill:treatment_bills(invoice_number, patient:patients(first_name, last_name)),
           staff:profiles(full_name)
         `)
-        .order("logged_at", { ascending: false })
-        .limit(20);
+        .order("logged_at", { ascending: false });
 
       if (logsData) setPaymentLogs(logsData);
     } catch (err) {
@@ -81,19 +85,56 @@ export default function BillingPage() {
     loadBillingData();
   }, [refreshTrigger]);
 
-  // Aggregate Metrics
-  const totalBilled = bills.reduce((sum, b) => sum + Number(b.net_amount), 0);
-  const totalCollected = paymentLogs.reduce((sum, p) => sum + Number(p.amount_logged), 0);
+  // Date Filtering Logic
+  const dateBoundaries = React.useMemo(() => {
+    const now = new Date();
+    if (dateFilter === "today") {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      return { start, end: now };
+    }
+    if (dateFilter === "this_week") {
+      const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      start.setHours(0, 0, 0, 0);
+      return { start, end: now };
+    }
+    if (dateFilter === "this_month") {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      return { start, end: now };
+    }
+    return { start: null, end: null };
+  }, [dateFilter]);
+
+  const dateFilteredBills = React.useMemo(() => {
+    const { start, end } = dateBoundaries;
+    return bills.filter((b) => {
+      if (!start) return true;
+      const bDate = new Date(b.created_at);
+      return bDate >= start && (!end || bDate <= end);
+    });
+  }, [bills, dateBoundaries]);
+
+  const dateFilteredPayments = React.useMemo(() => {
+    const { start, end } = dateBoundaries;
+    return paymentLogs.filter((p) => {
+      if (!start) return true;
+      const pDate = new Date(p.logged_at);
+      return pDate >= start && (!end || pDate <= end);
+    });
+  }, [paymentLogs, dateBoundaries]);
+
+  // Aggregate Metrics (based on filtered date)
+  const totalBilled = dateFilteredBills.reduce((sum, b) => sum + Number(b.net_amount), 0);
+  const totalCollected = dateFilteredPayments.reduce((sum, p) => sum + Number(p.amount_logged), 0);
   const totalOutstanding = balances.reduce((sum, b) => sum + Number(b.balance_due), 0);
 
   // Method breakdowns
-  const gcashTotal = paymentLogs
+  const gcashTotal = dateFilteredPayments
     .filter((p) => p.payment_method === "gcash")
     .reduce((sum, p) => sum + Number(p.amount_logged), 0);
-  const cashTotal = paymentLogs
+  const cashTotal = dateFilteredPayments
     .filter((p) => p.payment_method === "cash")
     .reduce((sum, p) => sum + Number(p.amount_logged), 0);
-  const cardTotal = paymentLogs
+  const cardTotal = dateFilteredPayments
     .filter((p) => p.payment_method === "card")
     .reduce((sum, p) => sum + Number(p.amount_logged), 0);
 
@@ -102,8 +143,14 @@ export default function BillingPage() {
   const [paymentsPage, setPaymentsPage] = useState(1);
   const paymentsPageSize = 5;
 
-  const filteredBills = bills.filter((b) => {
+  const filteredBills = dateFilteredBills.filter((b) => {
     if (statusFilter !== "all" && b.status !== statusFilter) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const invMatch = b.invoice_number?.toLowerCase().includes(q);
+      const nameMatch = `${b.patient?.first_name || ""} ${b.patient?.last_name || ""}`.toLowerCase().includes(q);
+      if (!invMatch && !nameMatch) return false;
+    }
     return true;
   });
 
@@ -112,7 +159,7 @@ export default function BillingPage() {
     billsPage * billsPageSize
   );
 
-  const paginatedPayments = paymentLogs.slice(
+  const paginatedPayments = dateFilteredPayments.slice(
     (paymentsPage - 1) * paymentsPageSize,
     paymentsPage * paymentsPageSize
   );
@@ -126,15 +173,61 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      {/* Top Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
-          <CreditCard className="w-6 h-6 text-teal-600" />
-          Financial Ledger & POS Terminal
-        </h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Automated invoice generation, payment logs (GCash, Cash, Card), and real-time balance calculations.
-        </p>
+      {/* Top Header with Reports Navigation CTA */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
+            <CreditCard className="w-6 h-6 text-teal-600" />
+            Financial Ledger & POS Terminal
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Automated invoice generation, payment logs (GCash, Cash, Card), and real-time balance calculations.
+          </p>
+        </div>
+
+        <Link
+          href="/reports"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm hover:shadow-md transition-all cursor-pointer shrink-0"
+        >
+          <BarChart3 className="w-4 h-4" />
+          <span>Financial Reports & Analytics</span>
+          <ChevronRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+
+      {/* Date Quick Filter Bar */}
+      <div className="flex items-center justify-between gap-3 flex-wrap bg-white dark:bg-slate-900 p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 px-2">
+            <Calendar className="w-3.5 h-3.5 text-teal-600" />
+            Date Scope:
+          </span>
+          {[
+            { id: "all", label: "All Time" },
+            { id: "today", label: "Today" },
+            { id: "this_week", label: "This Week" },
+            { id: "this_month", label: "This Month" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setDateFilter(tab.id as any);
+                setBillsPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                dateFilter === tab.id
+                  ? "bg-teal-600 text-white font-bold shadow-2xs"
+                  : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <span className="text-[11px] text-slate-400 px-2 font-medium">
+          Showing {dateFilteredBills.length} invoices ({dateFilteredPayments.length} payments)
+        </span>
       </div>
 
       {/* FINANCIAL OVERVIEW KPI CARDS */}
@@ -259,18 +352,31 @@ export default function BillingPage() {
               Treatment Invoices
             </h2>
 
-            {/* Filter */}
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-slate-500 font-semibold">Filter:</span>
+            {/* Search & Filter */}
+            <div className="flex items-center gap-2 text-xs flex-wrap">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setBillsPage(1);
+                  }}
+                  placeholder="Search invoice #, patient..."
+                  className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-medium text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500 w-44 sm:w-56"
+                />
+              </div>
+
               <select
                 value={statusFilter}
                 onChange={(e) => {
                   setStatusFilter(e.target.value);
                   setBillsPage(1);
                 }}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-medium text-slate-800 dark:text-slate-200"
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-medium text-slate-800 dark:text-slate-200 cursor-pointer"
               >
-                <option value="all">All Statuses ({bills.length})</option>
+                <option value="all">All Statuses ({dateFilteredBills.length})</option>
                 <option value="unpaid">Unpaid</option>
                 <option value="partially_paid">Partially Paid</option>
                 <option value="fully_paid">Fully Paid</option>

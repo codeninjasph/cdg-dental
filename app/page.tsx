@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -33,8 +33,43 @@ export default function HomePage() {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedServiceForModal, setSelectedServiceForModal] = useState<string | undefined>();
   const [selectedDentistForModal, setSelectedDentistForModal] = useState<string | undefined>();
+  
+  // Dynamic branches & dentists with SSR-compatible default state
+  const [branchesList, setBranchesList] = useState(CDO_BRANCHES_DATA);
+  const [dentistsList, setDentistsList] = useState(CDO_DENTISTS_DATA);
   const [quickBranchId, setQuickBranchId] = useState(CDO_BRANCHES_DATA[0].id);
   const [quickServiceId, setQuickServiceId] = useState(CDO_SERVICES_DATA[0].id);
+
+  // Fetch live clinic branches and doctors from database
+  useEffect(() => {
+    fetch("/api/public/clinic-data")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          if (Array.isArray(data.branches) && data.branches.length > 0) {
+            setBranchesList(data.branches);
+          }
+          if (Array.isArray(data.dentists) && data.dentists.length > 0) {
+            setDentistsList(
+              data.dentists.map((d: any) => ({
+                id: d.id,
+                name: d.name,
+                title: d.title,
+                prcLicense: d.prc_license || d.prcLicense || "000000",
+                photoUrl: d.photo_url || d.photoUrl || "/images/dentist-dr-kenneth.jpg",
+                specialty: d.specialty,
+                bio: d.bio,
+                experienceYears: d.experience_years ?? d.experienceYears ?? 5,
+                education: d.education,
+                certifications: d.certifications || [],
+                cdoClinicDays: d.clinic_days || d.cdoClinicDays || [],
+              }))
+            );
+          }
+        }
+      })
+      .catch((err) => console.error("Error fetching public clinic data:", err));
+  }, []);
 
   const handleOpenBooking = (serviceId?: string, dentistId?: string) => {
     setSelectedServiceForModal(serviceId);
@@ -193,9 +228,9 @@ export default function HomePage() {
                 onChange={(e) => setQuickBranchId(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
               >
-                {CDO_BRANCHES_DATA.map((b) => (
+                {branchesList.map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.shortName}
+                    {b.shortName || b.name}
                   </option>
                 ))}
               </select>
@@ -399,15 +434,18 @@ export default function HomePage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                {CDO_DENTISTS_DATA.map((doctor) => (
+                {dentistsList.slice(0, 4).map((doctor) => (
                   <div
-                    key={doctor.id}
+                    key={doctor.id || doctor.name}
                     className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 text-center hover:border-teal-500/50 transition-all flex flex-col items-center"
                   >
                     <img
                       src={doctor.photoUrl}
                       alt={doctor.name}
                       className="w-16 h-16 rounded-full object-cover border-2 border-teal-500/30 shadow-md mb-2.5"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/images/dentist-dr-kenneth.jpg";
+                      }}
                     />
                     <h4 className="font-bold text-xs text-slate-900 dark:text-white line-clamp-1">
                       {doctor.name.split(",")[0]}
@@ -417,7 +455,7 @@ export default function HomePage() {
                     </span>
                     <button
                       onClick={() => handleOpenBooking(undefined, doctor.id)}
-                      className="mt-3 px-3 py-1 rounded-lg bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 text-[10px] font-bold hover:bg-teal-100 transition-colors w-full"
+                      className="mt-3 px-3 py-1 rounded-lg bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 text-[10px] font-bold hover:bg-teal-100 dark:hover:bg-teal-900 transition-colors w-full cursor-pointer"
                     >
                       Book Visit
                     </button>

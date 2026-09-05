@@ -58,6 +58,19 @@ export const CDO_BRANCHES_DATA = [
     hours: "Monday – Saturday: 9:00 AM – 6:00 PM",
     landmarks: "Right beside SM City CDO Uptown, across Pueblo Golf Course and near Xavier High School.",
     parking: "Dedicated ground-floor clinic reserved parking right in front of the clinic entrance."
+  },
+  {
+    id: "9eb6d8ad-169f-495e-af5d-d80218adc6ac",
+    slug: "centrio-ayala",
+    name: "Centrio CDO Hub (Ayala Malls)",
+    shortName: "Centrio (Ayala Mall)",
+    address: "3rd Level Ayala Malls Centrio, C.M. Recto Ave, Cagayan de Oro City, 9000 Misamis Oriental",
+    phone: "+63 88 880 8888",
+    mobile: "+63 917 880 8888",
+    email: "centrio.cdo@cdgdental.ph",
+    hours: "Monday – Sunday: 10:00 AM – 8:00 PM (Mall Hours)",
+    landmarks: "3rd Level beside Cinema Wing, Ayala Malls Centrio, downtown Cagayan de Oro.",
+    parking: "Spacious multi-level basement mall parking with direct elevator access."
   }
 ];
 

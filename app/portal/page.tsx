@@ -8,7 +8,6 @@ import { Appointment, OutstandingBalance, Treatment, Patient } from "@/types/den
 import { AppointmentModal } from "@/components/appointments/appointment-modal";
 import { PatientRegistrationModal } from "@/components/patients/patient-registration-modal";
 import { PaymentModal } from "@/components/billing/payment-modal";
-import { InviteStaffModal } from "@/components/admin/invite-staff-modal";
 import { Pagination } from "@/components/ui/pagination";
 import {
   Calendar,
@@ -26,10 +25,6 @@ import {
   Phone,
   QrCode,
   ShieldAlert,
-  UserCheck,
-  Shield,
-  UserPlus,
-  Building2,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -58,7 +53,6 @@ export default function DashboardPage() {
   // Modals state
   const [isApptModalOpen, setIsApptModalOpen] = useState(false);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
-  const [isInviteStaffOpen, setIsInviteStaffOpen] = useState(false);
   const [paymentBill, setPaymentBill] = useState<{
     id: string;
     invoice_number: string;
@@ -143,78 +137,49 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      {/* Welcome & Quick Action Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-r from-teal-900 via-slate-900 to-slate-950 text-white shadow-xl shadow-teal-950/20 relative overflow-hidden">
-        {/* Subtle background glow */}
-        <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute left-1/3 top-0 w-48 h-48 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
-
-        <div className="relative z-10 space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-500/20 text-teal-300 border border-teal-400/30">
-              {activeBranch?.name || "Main Clinic"}
+      {/* Clinic Operations Executive Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse shrink-0" />
+              {activeBranch?.name?.replace(/^CDG Dental Clinic\s*[—–-]\s*/i, "").trim() || "Main Clinic Hub"}
             </span>
-            <span className="text-xs text-slate-400">
-              Logged in as <strong className="text-teal-200">{currentStaff?.full_name || "Staff"}</strong> ({currentRole.toUpperCase()})
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              • {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-            Clinic Operations & Practice Portal
+
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+            {(() => {
+              const hour = new Date().getHours();
+              const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+              const doctorName = currentStaff?.full_name?.split(",")[0] || "Doctor";
+              return `${greeting}, ${doctorName}`;
+            })()}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
-            Real-time appointment queue, 32-tooth odontogram records, and integrated GCash/Cash ledger.
+
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            Real-time appointment schedule, active chairside treatments, and clinical overview.
           </p>
         </div>
 
-        {/* Action Buttons */}
-        <div className="relative z-10 flex flex-wrap items-center gap-2.5">
-          {isAdmin && (
-            <>
-              <Link
-                href="/admin/users"
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs shadow-md shadow-violet-600/30 hover:shadow-lg transition-all cursor-pointer"
-              >
-                <Shield className="w-4 h-4" />
-                <span>Staff & Access</span>
-              </Link>
-              <Link
-                href="/admin/branches"
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600/80 hover:bg-teal-500 text-white font-bold text-xs shadow-md shadow-teal-600/30 hover:shadow-lg transition-all cursor-pointer"
-              >
-                <Building2 className="w-4 h-4" />
-                <span>Branches</span>
-              </Link>
-              <button
-                onClick={() => setIsInviteStaffOpen(true)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-500/20 hover:bg-violet-500/30 text-violet-200 border border-violet-400/40 font-bold text-xs backdrop-blur-sm transition-all cursor-pointer"
-              >
-                <UserPlus className="w-4 h-4" />
-                <span>+ Invite Staff</span>
-              </button>
-            </>
-          )}
-          {isAdmin && (
-            <Link
-              href="/secretary"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs shadow-md shadow-teal-500/25 hover:shadow-lg transition-all cursor-pointer"
-            >
-              <UserCheck className="w-4 h-4" />
-              <span>Secretary Desk</span>
-            </Link>
-          )}
-          <button
-            onClick={() => setIsApptModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 backdrop-blur-sm transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Book Visit</span>
-          </button>
+        {/* Primary Operational Actions (Clean & Non-Redundant) */}
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
           <button
             onClick={() => setIsPatientModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 backdrop-blur-sm transition-all cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-semibold text-xs shadow-2xs hover:shadow-xs transition-all cursor-pointer"
           >
-            <Users className="w-4 h-4" />
+            <Users className="w-4 h-4 text-slate-500 dark:text-slate-400" />
             <span>Register Patient</span>
+          </button>
+
+          <button
+            onClick={() => setIsApptModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm hover:shadow-md shadow-teal-600/20 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Book Appointment</span>
           </button>
         </div>
       </div>
@@ -616,12 +581,6 @@ export default function DashboardPage() {
         onClose={() => setPaymentBill(null)}
         onSuccess={triggerRefresh}
         bill={paymentBill}
-      />
-
-      <InviteStaffModal
-        isOpen={isInviteStaffOpen}
-        onClose={() => setIsInviteStaffOpen(false)}
-        onSuccess={triggerRefresh}
       />
     </div>
   );

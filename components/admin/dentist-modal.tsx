@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useClinic } from "@/context/clinic-context";
+import { CDO_BRANCHES_DATA } from "@/lib/cdo-clinic-data";
 import {
   X,
   Sparkles,
@@ -60,9 +61,53 @@ export function DentistModal({
   onSuccess,
   dentistToEdit,
 }: DentistModalProps) {
-  const { showToast } = useClinic();
+  const { showToast, branches: clinicBranches } = useClinic();
   const isEditing = Boolean(dentistToEdit && dentistToEdit.id);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [dynamicBranches, setDynamicBranches] = useState<
+    Array<{ id: string; name: string; shortName: string }>
+  >(
+    CDO_BRANCHES_DATA.map((b) => ({
+      id: b.id,
+      name: b.name,
+      shortName: b.shortName,
+    }))
+  );
+
+  useEffect(() => {
+    if (clinicBranches && clinicBranches.length > 0) {
+      setDynamicBranches(
+        clinicBranches.map((b) => ({
+          id: b.id,
+          name: b.name,
+          shortName:
+            b.name.includes("—")
+              ? b.name.split("—")[1].trim()
+              : b.name.replace(/^CDG Dental Clinic\s*[—–-]\s*/i, "").trim(),
+        }))
+      );
+    } else {
+      fetch("/api/public/clinic-data")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.branches && data.branches.length > 0) {
+            setDynamicBranches(
+              data.branches.map((b: any) => ({
+                id: b.id,
+                name: b.name,
+                shortName:
+                  b.shortName ||
+                  (b.name.includes("—")
+                    ? b.name.split("—")[1].trim()
+                    : b.name.replace(/^CDG Dental Clinic\s*[—–-]\s*/i, "").trim()),
+              }))
+            );
+          }
+        })
+        .catch(() => {});
+    }
+  }, [clinicBranches]);
 
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
@@ -535,16 +580,68 @@ export function DentistModal({
                     key={idx}
                     className="grid grid-cols-1 sm:grid-cols-12 gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 items-center"
                   >
-                    <div className="sm:col-span-5">
-                      <input
-                        type="text"
-                        value={row.branchName}
-                        onChange={(e) =>
-                          handleScheduleChange(idx, "branchName", e.target.value)
+                    <div className="sm:col-span-5 space-y-1">
+                      <select
+                        value={
+                          dynamicBranches.some(
+                            (b) =>
+                              b.shortName.toLowerCase() === row.branchName.toLowerCase() ||
+                              b.name.toLowerCase() === row.branchName.toLowerCase()
+                          )
+                            ? dynamicBranches.find(
+                                (b) =>
+                                  b.shortName.toLowerCase() === row.branchName.toLowerCase() ||
+                                  b.name.toLowerCase() === row.branchName.toLowerCase()
+                              )?.shortName
+                            : row.branchName
+                            ? "__custom__"
+                            : ""
                         }
-                        placeholder="Branch Name (e.g. Downtown)"
-                        className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"
-                      />
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "__custom__") {
+                            handleScheduleChange(
+                              idx,
+                              "branchName",
+                              dynamicBranches.some(
+                                (b) => b.shortName.toLowerCase() === row.branchName.toLowerCase()
+                              )
+                                ? ""
+                                : row.branchName
+                            );
+                          } else {
+                            handleScheduleChange(idx, "branchName", val);
+                          }
+                        }}
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      >
+                        <option value="" disabled>
+                          Select Clinic Branch...
+                        </option>
+                        {dynamicBranches.map((b) => (
+                          <option key={b.id || b.shortName} value={b.shortName}>
+                            {b.shortName}
+                          </option>
+                        ))}
+                        <option value="__custom__">✏️ Custom / Other Branch...</option>
+                      </select>
+
+                      {(!dynamicBranches.some(
+                        (b) =>
+                          b.shortName.toLowerCase() === row.branchName.toLowerCase() ||
+                          b.name.toLowerCase() === row.branchName.toLowerCase()
+                      ) ||
+                        !row.branchName) && (
+                        <input
+                          type="text"
+                          value={row.branchName}
+                          onChange={(e) =>
+                            handleScheduleChange(idx, "branchName", e.target.value)
+                          }
+                          placeholder="Type custom branch name..."
+                          className="w-full px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-teal-400/50 dark:border-teal-500/50 text-[11px] text-teal-800 dark:text-teal-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        />
+                      )}
                     </div>
                     <div className="sm:col-span-3">
                       <input
