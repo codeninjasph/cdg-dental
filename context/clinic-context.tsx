@@ -31,7 +31,7 @@ interface ClinicContextType {
   removeToast: (id: string) => void;
   refreshTrigger: number;
   triggerRefresh: () => void;
-  refreshBranches: () => Promise<Branch[] | void>;
+  refreshBranches: () => Promise<Branch[]>;
 }
 
 const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
@@ -63,7 +63,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const refreshBranches = async () => {
+  const refreshBranches = async (): Promise<Branch[]> => {
     try {
       const { data: bData } = await supabase
         .from("branches")
