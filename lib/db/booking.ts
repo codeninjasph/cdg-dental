@@ -113,28 +113,58 @@ export async function getPublicBookedSlots(
 ): Promise<string[]> {
   const db = getPool();
 
-  const dayStart = `${date} 00:00:00+00`;
-  const dayEnd = `${date} 23:59:59+00`;
+  // Timezone: Philippine Standard Time (PST = UTC+8)
+  const dayStart = `${date} 00:00:00+08:00`;
+  const dayEnd = `${date} 23:59:59+08:00`;
 
   let query = `
     SELECT 
-      TO_CHAR(start_time AT TIME ZONE 'Asia/Manila', 'HH24:MI') as slot_time,
-      dentist_id
+      TO_CHAR(start_time AT TIME ZONE 'Asia/Manila', 'HH24:MI') as start_str,
+      TO_CHAR(end_time AT TIME ZONE 'Asia/Manila', 'HH24:MI') as end_str,
+      dentist_id,
+      branch_id
     FROM public.appointments
-    WHERE branch_id = $1::uuid
-      AND start_time >= $2::timestamptz
-      AND start_time <= $3::timestamptz
+    WHERE start_time <= $2::timestamptz
+      AND COALESCE(end_time, start_time) >= $1::timestamptz
       AND status != 'cancelled'
   `;
-  const params: any[] = [branchId, dayStart, dayEnd];
+  const params: any[] = [dayStart, dayEnd];
 
   if (dentistId && dentistId !== "any") {
-    query += " AND dentist_id = $4::uuid";
+    // A dentist cannot be in two branches at once — check this dentist's bookings across ALL branches
+    query += " AND dentist_id = $3::uuid";
     params.push(dentistId);
+  } else {
+    // When no specific doctor is selected, check booked appointments at this specific branch
+    query += " AND branch_id = $3::uuid";
+    params.push(branchId);
   }
 
   const { rows } = await db.query(query, params);
-  return rows.map((r: any) => r.slot_time);
+  const bookedSet = new Set<string>();
+
+  for (const r of rows) {
+    if (!r.start_str) continue;
+    bookedSet.add(r.start_str);
+
+    if (r.end_str) {
+      const [sH, sM] = r.start_str.split(":").map(Number);
+      const [eH, eM] = r.end_str.split(":").map(Number);
+      const startMin = sH * 60 + sM;
+      const endMin = eH * 60 + eM;
+
+      if (endMin > startMin) {
+        // Populate slots in 15-minute increments up to endMin
+        for (let m = startMin; m < endMin; m += 15) {
+          const hh = String(Math.floor(m / 60)).padStart(2, "0");
+          const mm = String(m % 60).padStart(2, "0");
+          bookedSet.add(`${hh}:${mm}`);
+        }
+      }
+    }
+  }
+
+  return Array.from(bookedSet);
 }
 
 const DAY_NAMES = [
@@ -244,20 +274,23 @@ export async function createPublicBooking(
   const assignedDentist = activeDentists.find((d) => d.id === dentistId);
   const dentistName = assignedDentist ? assignedDentist.name : "Attending CDG Dental Specialist";
 
-  // 4. Double-Booking Conflict Check
-  const startTimestamp = `${input.date}T${input.time}:00`;
+  // 4. Double-Booking Conflict Check (PST UTC+8 & Range Overlap across all branches)
+  const startTimestamp = `${input.date}T${input.time}:00+08:00`;
   const startDate = new Date(startTimestamp);
   const endDate = new Date(startDate.getTime() + slotMinutes * 60000);
-  const endHours = String(endDate.getHours()).padStart(2, "0");
-  const endMins = String(endDate.getMinutes()).padStart(2, "0");
-  const formattedEndTime = `${endHours}:${endMins}`;
+
+  const [startH, startM] = input.time.split(":").map(Number);
+  const totalMins = startH * 60 + startM + slotMinutes;
+  const endH = Math.floor(totalMins / 60) % 24;
+  const endM = totalMins % 60;
+  const formattedEndTime = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
 
   const { rows: conflictRows } = await db.query(
     `SELECT id FROM public.appointments
      WHERE dentist_id = $1::uuid
        AND status != 'cancelled'
-       AND start_time = $2::timestamptz;`,
-    [dentistId, startTimestamp]
+       AND (start_time < $3::timestamptz AND end_time > $2::timestamptz);`,
+    [dentistId, startDate.toISOString(), endDate.toISOString()]
   );
 
   if (conflictRows.length > 0) {
