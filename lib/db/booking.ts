@@ -303,6 +303,28 @@ export async function createPublicBooking(
   const assignedDentist = activeDentists.find((d) => d.id === dentistId);
   const dentistName = assignedDentist ? assignedDentist.name : "Attending CDG Dental Specialist";
 
+  // 3c. Backend Duty Validation: Verify doctor is rostered on duty at this branch and within duty hours
+  if (input.dentist_id && input.dentist_id !== "any") {
+    if (!assignedDentist) {
+      throw new Error("The selected dentist is currently inactive or not found.");
+    }
+
+    const duty = getDentistDutyForDate(assignedDentist, branch.name, input.date);
+    if (!duty.isOnDuty) {
+      throw new Error(
+        `${dentistName} is not scheduled on duty at ${branch.name} on ${input.date} (${duty.reason}). Please select another date or doctor.`
+      );
+    }
+
+    if (duty.startTime && duty.endTime) {
+      if (input.time < duty.startTime || input.time >= duty.endTime) {
+        throw new Error(
+          `The requested time ${input.time} is outside ${dentistName}'s duty hours at this branch (${duty.workingHours || `${duty.startTime} - ${duty.endTime}`}).`
+        );
+      }
+    }
+  }
+
   // 4. Double-Booking Conflict Check (PST UTC+8 & Range Overlap across all branches)
   const { rows: conflictRows } = await db.query(
     `SELECT id FROM public.appointments

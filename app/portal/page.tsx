@@ -48,6 +48,7 @@ export default function DashboardPage() {
     currentStaff,
     staffList,
     activeBranch,
+    dentistDuty,
     showToast,
     refreshTrigger,
     triggerRefresh,
@@ -345,6 +346,25 @@ export default function DashboardPage() {
               <Stethoscope className="w-3 h-3" />
               {currentRole === "dentist" ? "Doctor Operatory" : "Clinical Workstation"}
             </span>
+
+            {dentistDuty && (
+              <span
+                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+                  dentistDuty.isOnDuty
+                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    dentistDuty.isOnDuty ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                  }`}
+                />
+                {dentistDuty.isOnDuty
+                  ? `On Duty Today (${dentistDuty.workingHours || `${dentistDuty.startTime} - ${dentistDuty.endTime}`})`
+                  : dentistDuty.reason}
+              </span>
+            )}
 
             <span className="text-xs text-slate-400 dark:text-slate-500">
               • {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}

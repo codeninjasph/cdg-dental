@@ -8,6 +8,7 @@ import {
   setRoleCookie,
   getRoleFromCookie,
 } from "@/lib/supabase/get-user-role";
+import { getDentistDutyForDate, DentistDutyStatus } from "@/lib/duty-schedule";
 
 interface ToastNotification {
   id: string;
@@ -26,6 +27,7 @@ interface ClinicContextType {
   setCurrentRole: (role: UserRole) => void;
   currentStaff: Profile | null;
   setCurrentStaff: (staff: Profile) => void;
+  dentistDuty: DentistDutyStatus | null;
   toasts: ToastNotification[];
   showToast: (message: string, type?: "success" | "error" | "info") => void;
   removeToast: (id: string) => void;
@@ -36,6 +38,64 @@ interface ClinicContextType {
 
 const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
 
+/**
+ * Auto-detects the clinic branch where a dentist is rostered on duty today
+ */
+async function resolveDentistDutyBranch(
+  staff: Profile,
+  branchList: Branch[]
+): Promise<{ branch: Branch | null; duty: DentistDutyStatus | null }> {
+  try {
+    const res = await fetch("/api/dentists");
+    const json = await res.json();
+    const dentists: any[] = json.dentists || [];
+
+    const cleanStaffName = (staff.full_name || "").toLowerCase().trim();
+    const matchedDentist = dentists.find(
+      (d) =>
+        d.id === staff.id ||
+        (d.name && cleanStaffName && d.name.toLowerCase().includes(cleanStaffName)) ||
+        (cleanStaffName && d.name && cleanStaffName.includes(d.name.toLowerCase()))
+    );
+
+    if (!matchedDentist) {
+      const fallback =
+        (staff.branch_id && branchList.find((b) => b.id === staff.branch_id)) ||
+        branchList[0] ||
+        null;
+      return { branch: fallback, duty: null };
+    }
+
+    const today = new Date();
+
+    // 1. Check if scheduled on duty today at any active branch
+    for (const b of branchList) {
+      const status = getDentistDutyForDate(matchedDentist, b.name, today);
+      if (status.isOnDuty) {
+        return { branch: b, duty: status };
+      }
+    }
+
+    // 2. Off duty today: return primary/assigned branch with off duty reason
+    const primary =
+      (staff.branch_id && branchList.find((b) => b.id === staff.branch_id)) ||
+      branchList[0] ||
+      null;
+    const offDutyStatus = primary
+      ? getDentistDutyForDate(matchedDentist, primary.name, today)
+      : null;
+
+    return { branch: primary, duty: offDutyStatus };
+  } catch (err) {
+    console.warn("Could not auto-detect doctor duty branch:", err);
+    const fallback =
+      (staff.branch_id && branchList.find((b) => b.id === staff.branch_id)) ||
+      branchList[0] ||
+      null;
+    return { branch: fallback, duty: null };
+  }
+}
+
 export function ClinicProvider({ children }: { children: React.ReactNode }) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [activeBranch, setActiveBranch] = useState<Branch | null>(null);
@@ -44,6 +104,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   const [actualRole, setActualRole] = useState<UserRole>("dentist");
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [currentStaff, setCurrentStaff] = useState<Profile | null>(null);
+  const [dentistDuty, setDentistDuty] = useState<DentistDutyStatus | null>(null);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
@@ -146,7 +207,18 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
 
           if (activeStaff) {
             setCurrentStaff(activeStaff);
-            if (activeStaff.branch_id) {
+
+            if (activeRole === "dentist") {
+              // Auto-detect doctor duty branch based on today's schedule
+              const { branch, duty } = await resolveDentistDutyBranch(activeStaff, branchList);
+              if (duty) setDentistDuty(duty);
+              if (branch) {
+                setActiveBranch(branch);
+              } else if (activeStaff.branch_id) {
+                const assignedBranch = (branchList || []).find((b) => b.id === activeStaff.branch_id);
+                if (assignedBranch) setActiveBranch(assignedBranch);
+              }
+            } else if (activeStaff.branch_id) {
               const assignedBranch = (branchList || []).find((b) => b.id === activeStaff.branch_id);
               if (assignedBranch) {
                 setActiveBranch(assignedBranch);
@@ -163,7 +235,11 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
           const match = normalizedStaff.find((s) => s.role === savedCookieRole);
           if (match) {
             setCurrentStaff(match);
-            if (match.branch_id) {
+            if (savedCookieRole === "dentist") {
+              const { branch, duty } = await resolveDentistDutyBranch(match, branchList);
+              if (duty) setDentistDuty(duty);
+              if (branch) setActiveBranch(branch);
+            } else if (match.branch_id) {
               const assignedBranch = (branchList || []).find((b) => b.id === match.branch_id);
               if (assignedBranch) setActiveBranch(assignedBranch);
             }
@@ -173,7 +249,11 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
           setCurrentStaff(defaultStaff);
           setCurrentRole(defaultStaff.role);
           setRoleCookie(defaultStaff.role);
-          if (defaultStaff.branch_id) {
+          if (defaultStaff.role === "dentist") {
+            const { branch, duty } = await resolveDentistDutyBranch(defaultStaff, branchList);
+            if (duty) setDentistDuty(duty);
+            if (branch) setActiveBranch(branch);
+          } else if (defaultStaff.branch_id) {
             const assignedBranch = (branchList || []).find((b) => b.id === defaultStaff.branch_id);
             if (assignedBranch) setActiveBranch(assignedBranch);
           }
@@ -191,6 +271,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         setCurrentStaff(null);
         setIsAdmin(false);
         setActualRole("dentist");
+        setDentistDuty(null);
       } else if (event === "SIGNED_IN" || event === "USER_UPDATED" || event === "TOKEN_REFRESHED") {
         // Re-sync metadata and user role from live profile
         loadMeta();
@@ -202,12 +283,20 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const handleRoleChange = (newRole: UserRole) => {
+  const handleRoleChange = async (newRole: UserRole) => {
     setCurrentRole(newRole);
     setRoleCookie(newRole);
     const match = staffList.find((s) => s.role === newRole);
     if (match) {
       setCurrentStaff(match);
+      if (newRole === "dentist") {
+        const { branch, duty } = await resolveDentistDutyBranch(match, branches);
+        if (duty) setDentistDuty(duty);
+        if (branch) setActiveBranch(branch);
+      } else if (match.branch_id) {
+        const assigned = branches.find((b) => b.id === match.branch_id);
+        if (assigned) setActiveBranch(assigned);
+      }
       showToast(`Switched active view to: ${match.full_name} (${newRole.toUpperCase()})`, "info");
     } else {
       showToast(`Switched active role to: ${newRole.toUpperCase()}`, "info");
@@ -227,6 +316,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         setCurrentRole: handleRoleChange,
         currentStaff,
         setCurrentStaff,
+        dentistDuty,
         toasts,
         showToast,
         removeToast,
