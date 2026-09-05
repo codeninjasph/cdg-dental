@@ -91,7 +91,9 @@
 }
 
 /* Mobile Touch & Safe Area Support */
-html {
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
@@ -101,5 +103,10 @@ html {
 }
 .pt-safe {
   padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Mobile bottom nav spacing: ensures all text and buttons clear the fixed bottom nav by > 2rem */
+.pb-mobile-nav {
+  padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
 }
 

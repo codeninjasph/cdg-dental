@@ -137,7 +137,9 @@ export function ClinicNavbar() {
   );
 
   return (
-    <header className="sticky top-0 z-40 w-full max-w-full overflow-x-clip">
+    <>
+      {/* ── Top Navbar: Desktop Only (Hidden on Mobile) ── */}
+      <header className="hidden lg:block sticky top-0 z-40 w-full max-w-full overflow-x-clip">
       {/* Main bar */}
       <div className="bg-slate-950/95 backdrop-blur-xl border-b border-white/[0.06] shadow-2xl shadow-black/40">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
@@ -510,62 +512,65 @@ export function ClinicNavbar() {
 
       {/* Slim neon underline accent */}
       <div className="h-px bg-gradient-to-r from-transparent via-teal-500/40 to-transparent" />
+    </header>
 
-      {/* ── Ergonomic Mobile Bottom Navigation Bar (Phones & Small Tablets) ── */}
-      <nav
-        aria-label="Mobile Navigation"
-        className="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-xl border-t border-white/[0.08] lg:hidden pb-safe shadow-2xl shadow-black"
-      >
-        <div className="grid grid-flow-col auto-cols-fr items-center justify-around h-16 px-1">
-          {navLinks.slice(0, 4).map((link) => {
-            const Icon = link.icon;
-            const isActive = isLinkActive(link);
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                aria-current={isActive ? "page" : undefined}
-                className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all active:scale-90 ${
-                  isActive
-                    ? "text-teal-400 font-bold"
-                    : "text-slate-400 hover:text-slate-200"
+    {/* ── Ergonomic Mobile Bottom Navigation Bar (Phones & Small Tablets) ── */}
+    <nav
+      aria-label="Mobile Navigation"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur-xl border-t border-white/[0.08] lg:hidden pb-safe shadow-2xl shadow-black"
+    >
+      <div className="grid grid-cols-5 items-center justify-around h-16 px-1">
+        {navLinks.slice(0, 4).map((link) => {
+          const Icon = link.icon;
+          const isActive = isLinkActive(link);
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              aria-current={isActive ? "page" : undefined}
+              className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all active:scale-90 ${
+                isActive
+                  ? "text-teal-400 font-bold"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <div
+                className={`p-1.5 rounded-xl transition-all ${
+                  isActive ? "bg-teal-500/20 shadow-xs" : ""
                 }`}
               >
-                <div
-                  className={`p-1.5 rounded-xl transition-all ${
-                    isActive ? "bg-teal-500/20 shadow-xs" : ""
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                </div>
-                <span className="text-[10px] tracking-tight truncate max-w-[70px] mt-0.5">
-                  {link.shortLabel || link.label.split(" ")[0]}
-                </span>
-              </Link>
-            );
-          })}
+                <Icon className="w-5 h-5" />
+              </div>
+              <span className="text-[10px] tracking-tight truncate max-w-[70px] mt-0.5">
+                {link.shortLabel || link.label.split(" ")[0]}
+              </span>
+            </Link>
+          );
+        })}
 
-          {/* 5th Tab: Quick Role & Admin Hub */}
-          <button
-            onClick={() => {
-              if (isAdmin) {
-                setRoleOpen((o) => !o);
-              } else {
-                window.location.href = currentRole === "secretary" ? "/secretary" : "/portal";
-              }
-            }}
-            aria-label="Staff Profile & Controls"
-            className="flex flex-col items-center justify-center py-1 px-1 rounded-xl text-slate-400 hover:text-slate-200 active:scale-90"
-          >
-            <div className="p-1.5 rounded-xl bg-white/[0.05]">
-              <RoleIcon className={`w-5 h-5 ${role.color}`} />
-            </div>
-            <span className="text-[10px] tracking-tight truncate max-w-[70px] mt-0.5">
-              {isAdmin ? "Admin" : role.label}
-            </span>
-          </button>
-        </div>
-      </nav>
-    </header>
+        {/* 5th Tab: Dedicated Mobile Sign Out Button */}
+        <button
+          type="button"
+          onClick={async () => {
+            if (window.confirm("Are you sure you want to sign out of CDG Dental?")) {
+              const supabase = createClient();
+              await supabase.auth.signOut();
+              clearRoleCookie();
+              window.location.href = "/auth/login";
+            }
+          }}
+          aria-label="Sign Out"
+          className="flex flex-col items-center justify-center py-1 px-1 rounded-xl text-rose-400 hover:text-rose-300 active:scale-90 transition-all cursor-pointer"
+        >
+          <div className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400">
+            <LogOut className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] tracking-tight truncate max-w-[70px] mt-0.5 text-rose-400 font-medium">
+            Sign Out
+          </span>
+        </button>
+      </div>
+    </nav>
+  </>
   );
 }

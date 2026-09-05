@@ -27,11 +27,11 @@ export function AppLayoutShell({ children }: { children: React.ReactNode }) {
 
   if (isPortalRoute) {
     return (
-      <div className="min-h-screen flex flex-col bg-slate-50/50 dark:bg-slate-950">
-        <Suspense fallback={<div className="h-[60px] bg-slate-950/95" />}>
+      <div className="min-h-screen flex flex-col bg-slate-50/50 dark:bg-slate-950 w-full max-w-full overflow-x-hidden">
+        <Suspense fallback={<div className="hidden lg:block h-[60px] bg-slate-950/95" />}>
           <ClinicNavbar />
         </Suspense>
-        <main className="flex-1 w-full px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 sm:py-6 pb-24 lg:pb-8 pb-safe">
+        <main className="flex-1 w-full max-w-full overflow-x-hidden px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 sm:py-6 pb-mobile-nav lg:pb-8">
           {children}
         </main>
       </div>

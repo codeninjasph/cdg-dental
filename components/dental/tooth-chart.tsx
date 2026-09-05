@@ -225,7 +225,7 @@ export function ToothChart({
   });
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden p-6 space-y-6">
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden p-3.5 sm:p-6 space-y-4 sm:space-y-6 max-w-full">
       {/* Top Header & Toggles */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
         <div>
@@ -398,7 +398,7 @@ export function ToothChart({
       )}
 
       {/* THE ODONTOGRAM CHART CONTAINER (Always accessible, full panoramic layout) */}
-      <div className={`overflow-x-auto pb-4 touch-manipulation ${selectedQuadrant !== "all" ? "hidden md:block opacity-60 hover:opacity-100 transition-opacity" : ""}`}>
+      <div className={`overflow-x-auto pb-4 touch-manipulation max-w-full ${selectedQuadrant !== "all" ? "hidden md:block opacity-60 hover:opacity-100 transition-opacity" : ""}`}>
         <div className="min-w-[780px] flex flex-col items-center space-y-6">
           {/* MAXILLARY / UPPER ARCH (Teeth 1 to 16) */}
           <div className="w-full bg-slate-50/70 dark:bg-slate-950/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 relative">
