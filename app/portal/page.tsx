@@ -333,294 +333,324 @@ export default function DashboardPage() {
   }, [selectedDentistId, staffList, currentStaff]);
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
-      {/* ── 1. CLINICAL HEADER & DOCTOR OPERATORY SCOPING ── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse shrink-0" />
-              {activeBranch?.name?.replace(/^CDG Dental Clinic\s*[—–-]\s*/i, "").trim() || "Main Clinic Hub"}
-            </span>
+    <div className="space-y-5 sm:space-y-8 animate-in fade-in duration-300">
+      {/* ── 1. CLINICAL HEADER & DOCTOR OPERATORY SCOPING (MOBILE ENHANCED) ── */}
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br from-white via-slate-50/90 to-teal-50/40 dark:from-slate-900 dark:via-slate-900/95 dark:to-teal-950/25 border border-slate-200/80 dark:border-slate-800 shadow-sm p-4 sm:p-6 lg:p-7">
+        {/* Subtle background ambient glow */}
+        <div className="absolute -right-10 -top-10 w-44 h-44 bg-teal-500/10 dark:bg-teal-400/10 rounded-full blur-3xl pointer-events-none" />
 
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20">
-              <Stethoscope className="w-3 h-3" />
-              {currentRole === "dentist" ? "Doctor Operatory" : "Clinical Workstation"}
-            </span>
-
-            {dentistDuty && (
-              <span
-                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
-                  dentistDuty.isOnDuty
-                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
-                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
-                }`}
-              >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    dentistDuty.isOnDuty ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
-                  }`}
-                />
-                {dentistDuty.isOnDuty
-                  ? `On Duty Today (${dentistDuty.workingHours || `${dentistDuty.startTime} - ${dentistDuty.endTime}`})`
-                  : dentistDuty.reason}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative">
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse shrink-0" />
+                {activeBranch?.name?.replace(/^CDG Dental Clinic\s*[—–-]\s*/i, "").trim() || "Main Clinic Hub"}
               </span>
-            )}
 
-            <span className="text-xs text-slate-400 dark:text-slate-500">
-              • {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
-            </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 shadow-2xs">
+                <Stethoscope className="w-3 h-3 shrink-0" />
+                {currentRole === "dentist" ? "Doctor Operatory" : "Clinical Workstation"}
+              </span>
+
+              {dentistDuty && (
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border shadow-2xs ${
+                    dentistDuty.isOnDuty
+                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20"
+                      : "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20"
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      dentistDuty.isOnDuty ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                    }`}
+                  />
+                  {dentistDuty.isOnDuty
+                    ? `On Duty (${dentistDuty.workingHours || `${dentistDuty.startTime} - ${dentistDuty.endTime}`})`
+                    : dentistDuty.reason}
+                </span>
+              )}
+
+              <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+                • {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+              </span>
+            </div>
+
+            <div className="pt-0.5">
+              <h1 className="text-xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                {(() => {
+                  const hour = new Date().getHours();
+                  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+                  return `${greeting}, ${selectedDentistName.split(",")[0]}`;
+                })()}
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                Real-time chairside operatory, patient schedule, and clinical performance overview.
+              </p>
+            </div>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-            {(() => {
-              const hour = new Date().getHours();
-              const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-              return `${greeting}, ${selectedDentistName.split(",")[0]}`;
-            })()}
-          </h1>
+          {/* Dynamic Controls: Doctor Selector (Admins) + Actions */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5 shrink-0 pt-1 sm:pt-0">
+            {isAdmin && (
+              <div className="flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800/80 px-3 py-2 rounded-xl border border-slate-200/80 dark:border-slate-700">
+                <span className="text-[11px] font-bold text-slate-500 shrink-0">Dentist:</span>
+                <select
+                  value={selectedDentistId}
+                  onChange={(e) => setSelectedDentistId(e.target.value)}
+                  aria-label="Filter schedule by dentist"
+                  className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-200 border-none outline-none focus:ring-0 cursor-pointer w-full"
+                >
+                  <option value="all">All Doctors (Clinic-wide)</option>
+                  {dentists.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            Real-time chairside operatory, patient schedule, and clinical performance overview.
-          </p>
-        </div>
-
-        {/* Dynamic Controls: Doctor Selector (Admins) + Actions */}
-        <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
-          {/* Admin Dentist Filter Dropdown */}
-          {isAdmin && (
-            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="text-[11px] font-bold text-slate-500 shrink-0">Dentist:</span>
-              <select
-                value={selectedDentistId}
-                onChange={(e) => setSelectedDentistId(e.target.value)}
-                aria-label="Filter schedule by dentist"
-                className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-200 border-none outline-none focus:ring-0 cursor-pointer"
+            {/* High-Impact 2-Column Touch Grid on Mobile, Flex on Desktop */}
+            <div className="grid grid-cols-2 sm:flex items-center gap-2 sm:gap-2.5">
+              <button
+                onClick={() => setIsPatientModalOpen(true)}
+                className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs shadow-2xs hover:shadow-xs transition-all cursor-pointer min-h-[44px]"
               >
-                <option value="all">All Doctors (Clinic-wide)</option>
-                {dentists.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.full_name}
-                  </option>
-                ))}
-              </select>
+                <Users className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                <span className="truncate">New Patient</span>
+              </button>
+
+              <button
+                onClick={() => setIsApptModalOpen(true)}
+                className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-bold text-xs shadow-sm hover:shadow-md shadow-teal-600/20 transition-all cursor-pointer min-h-[44px]"
+              >
+                <Plus className="w-4 h-4 shrink-0" />
+                <span className="truncate">Book Visit</span>
+              </button>
             </div>
-          )}
-
-          <button
-            onClick={() => setIsPatientModalOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-semibold text-xs shadow-2xs hover:shadow-xs transition-all cursor-pointer"
-          >
-            <Users className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-            <span>Register Patient</span>
-          </button>
-
-          <button
-            onClick={() => setIsApptModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm hover:shadow-md shadow-teal-600/20 transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Book Appointment</span>
-          </button>
+          </div>
         </div>
       </div>
 
-      {/* ── 2. DYNAMIC KPI METRIC CARDS ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ── 2. DYNAMIC KPI METRIC CARDS (2x2 Grid on Mobile, 4-Col Desktop) ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Card 1: Today's Scheduled Visits */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
+        <div className="p-3.5 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Visits Today
             </span>
-            <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-600 dark:text-teal-400">
-              <Calendar className="w-5 h-5" />
+            <div className="p-1.5 sm:p-2 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-600 dark:text-teal-400">
+              <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 font-mono">
+          <div className="mt-2 sm:mt-3 flex items-baseline gap-1.5">
+            <span className="text-xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 font-mono">
               {todayAppointments.length}
             </span>
-            <span className="text-xs text-teal-600 dark:text-teal-400 font-medium">
-              Appointments
+            <span className="text-[10px] sm:text-xs text-teal-600 dark:text-teal-400 font-semibold">
+              Appts
             </span>
           </div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-            {completedTodayCount} completed • {todayAppointments.length - completedTodayCount} pending
+          <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 truncate">
+            {completedTodayCount} done • {todayAppointments.length - completedTodayCount} left
           </p>
         </div>
 
         {/* Card 2: Patients in Chair */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
+        <div className="p-3.5 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Active In Chair
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+              In Chair
             </span>
-            <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400">
-              <Activity className="w-5 h-5" />
+            <div className="p-1.5 sm:p-2 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400">
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold text-purple-700 dark:text-purple-400 font-mono">
+          <div className="mt-2 sm:mt-3 flex items-baseline gap-1.5">
+            <span className="text-xl sm:text-3xl font-black text-purple-700 dark:text-purple-400 font-mono">
               {inTreatmentCount}
             </span>
-            <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">
-              Operatory Active
+            <span className="text-[10px] sm:text-xs text-purple-600 dark:text-purple-400 font-semibold">
+              Active
             </span>
           </div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-            {inTreatmentCount > 0 ? "Patient undergoing treatment now" : "Dental chair ready for next patient"}
+          <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 truncate">
+            {inTreatmentCount > 0 ? "Patient chairside now" : "Chair available"}
           </p>
         </div>
 
         {/* Card 3: Clinical Patients */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
+        <div className="p-3.5 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              {selectedDentistId === "all" ? "Total Patient Base" : "My Clinical Patients"}
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              {selectedDentistId === "all" ? "Total Base" : "My Patients"}
             </span>
-            <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
-              <Users className="w-5 h-5" />
+            <div className="p-1.5 sm:p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 font-mono">
+          <div className="mt-2 sm:mt-3 flex items-baseline gap-1.5">
+            <span className="text-xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 font-mono">
               {patientCount}
             </span>
-            <span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">
-              Active Charts
+            <span className="text-[10px] sm:text-xs text-indigo-600 dark:text-indigo-400 font-semibold">
+              Charts
             </span>
           </div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-            Mapped with odontograms & history
+          <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 truncate">
+            With odontograms
           </p>
         </div>
 
         {/* Card 4: Clinical Production This Month */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
+        <div className="p-3.5 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Clinical Production
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              Production
             </span>
-            <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400">
-              <DollarSign className="w-5 h-5" />
+            <div className="p-1.5 sm:p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400">
+              <DollarSign className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
+          <div className="mt-2 sm:mt-3 flex items-baseline gap-1.5">
+            <span className="text-xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
               ₱{monthRevenue.toLocaleString(undefined, { minimumFractionDigits: 0 })}
             </span>
           </div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-            {monthTreatmentsCount} procedures logged this month
+          <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 truncate">
+            {monthTreatmentsCount} procedures this mo.
           </p>
         </div>
       </div>
 
-      {/* ── 3. LIVE CHAIRSIDE OPERATORY HERO CARD ── */}
-      <div className="rounded-2xl border transition-all overflow-hidden shadow-xs bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800">
+      {/* ── 3. LIVE CHAIRSIDE OPERATORY HERO CARD (MOBILE REDESIGN) ── */}
+      <div className="rounded-2xl sm:rounded-3xl border transition-all overflow-hidden shadow-sm bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800">
         {inTreatmentAppt ? (
-          <div className="p-5 sm:p-6 bg-gradient-to-r from-purple-500/10 via-indigo-500/5 to-transparent border-l-4 border-l-purple-500">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-purple-600 text-white shadow-xs">
-                    <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                    CHAIRSIDE OPERATORY • ACTIVE PATIENT
-                  </span>
-                  <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                    Started at: {new Date(inTreatmentAppt.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Link
-                    href={`/patients/${inTreatmentAppt.patient?.id}`}
-                    className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-2 group transition-colors"
-                  >
-                    <span>
-                      {inTreatmentAppt.patient?.first_name} {inTreatmentAppt.patient?.last_name}
-                    </span>
-                    <ArrowRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 transition-transform" />
-                  </Link>
-
-                  {inTreatmentAppt.patient?.phone && (
-                    <span className="text-xs text-slate-500 font-mono hidden sm:inline">
-                      ({inTreatmentAppt.patient.phone})
-                    </span>
-                  )}
-                </div>
-
-                {/* Medical Alert Warning Pill */}
-                {inTreatmentAppt.patient?.medical_alerts ? (
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs font-bold">
-                    <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span>MEDICAL ALERT: {inTreatmentAppt.patient.medical_alerts}</span>
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    No critical medical alerts reported for this patient chart.
-                  </p>
-                )}
-
-                {inTreatmentAppt.notes && (
-                  <p className="text-xs text-slate-600 dark:text-slate-300 italic bg-white/70 dark:bg-slate-800/60 px-3 py-1.5 rounded-lg border border-slate-200/60 dark:border-slate-700/60 max-w-xl">
-                    "{inTreatmentAppt.notes}"
-                  </p>
-                )}
+          <div className="p-4 sm:p-6 bg-gradient-to-br from-purple-500/15 via-indigo-500/5 to-transparent border-l-4 border-l-purple-500">
+            <div className="space-y-4">
+              {/* Status Header */}
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-purple-600 text-white shadow-xs tracking-wide">
+                  <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                  CHAIRSIDE OPERATORY • ACTIVE SESSION
+                </span>
+                <span className="text-xs font-mono text-slate-500 dark:text-slate-400 bg-white/70 dark:bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
+                  Started {new Date(inTreatmentAppt.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </span>
               </div>
 
-              {/* Instant Chairside Operatory Actions */}
-              <div className="grid grid-cols-1 sm:flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto shrink-0 pt-2 sm:pt-0">
+              {/* Patient Identity & Details */}
+              <div className="flex items-start gap-3 sm:gap-4">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-500 text-white flex items-center justify-center font-black text-lg sm:text-xl shadow-md ring-2 ring-purple-500/30 shrink-0">
+                  {inTreatmentAppt.patient?.first_name?.[0] || "P"}
+                  {inTreatmentAppt.patient?.last_name?.[0] || ""}
+                </div>
+
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Link
+                      href={`/patients/${inTreatmentAppt.patient?.id}`}
+                      className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-1.5 group transition-colors truncate"
+                    >
+                      <span className="truncate">
+                        {inTreatmentAppt.patient?.first_name} {inTreatmentAppt.patient?.last_name}
+                      </span>
+                      <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform shrink-0" />
+                    </Link>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+                    {inTreatmentAppt.patient?.phone && (
+                      <a
+                        href={`tel:${inTreatmentAppt.patient.phone}`}
+                        className="inline-flex items-center gap-1 font-mono text-teal-600 dark:text-teal-400 hover:underline"
+                      >
+                        <Phone className="w-3 h-3" />
+                        <span>{inTreatmentAppt.patient.phone}</span>
+                      </a>
+                    )}
+                    {inTreatmentAppt.patient?.gender && (
+                      <span>• {inTreatmentAppt.patient.gender}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Medical Alert Warning Pill (High Contrast Rose) */}
+              {inTreatmentAppt.patient?.medical_alerts ? (
+                <div className="flex items-start gap-2.5 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-xs font-bold">
+                  <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="block uppercase tracking-wider text-[10px] text-rose-600 dark:text-rose-400">Critical Medical Alert</span>
+                    <span>{inTreatmentAppt.patient.medical_alerts}</span>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Notes */}
+              {inTreatmentAppt.notes && (
+                <p className="text-xs text-slate-600 dark:text-slate-300 italic bg-white/80 dark:bg-slate-850/80 p-3 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+                  "{inTreatmentAppt.notes}"
+                </p>
+              )}
+
+              {/* Instant Chairside Actions for Mobile & Desktop */}
+              <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5">
                 <Link
                   href={`/patients/${inTreatmentAppt.patient?.id}`}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-bold shadow-xs transition-all active:scale-98"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 text-xs font-extrabold shadow-xs transition-all active:scale-98 min-h-[44px]"
                 >
-                  <Stethoscope className="w-4 h-4 text-purple-600" />
-                  <span>Odontogram & Chart</span>
+                  <Stethoscope className="w-4 h-4 text-purple-600 shrink-0" />
+                  <span>Open Odontogram & Chart</span>
                 </Link>
 
-                <button
-                  onClick={() =>
-                    setTreatmentModal({
-                      isOpen: true,
-                      patientId: inTreatmentAppt.patient?.id,
-                      patientName: `${inTreatmentAppt.patient?.first_name} ${inTreatmentAppt.patient?.last_name}`,
-                      appointmentId: inTreatmentAppt.id,
-                    })
-                  }
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm hover:shadow-md shadow-purple-600/20 transition-all cursor-pointer active:scale-98"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>Record Treatment</span>
-                </button>
+                <div className="grid grid-cols-2 sm:flex items-center gap-2 sm:gap-2.5">
+                  <button
+                    onClick={() =>
+                      setTreatmentModal({
+                        isOpen: true,
+                        patientId: inTreatmentAppt.patient?.id,
+                        patientName: `${inTreatmentAppt.patient?.first_name} ${inTreatmentAppt.patient?.last_name}`,
+                        appointmentId: inTreatmentAppt.id,
+                      })
+                    }
+                    className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-xs font-bold shadow-sm hover:shadow-md shadow-purple-600/20 transition-all cursor-pointer active:scale-98 min-h-[44px]"
+                  >
+                    <Sparkles className="w-4 h-4 shrink-0" />
+                    <span>Record Treatment</span>
+                  </button>
 
-                <button
-                  onClick={() => handleUpdateStatus(inTreatmentAppt.id, "completed")}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm hover:shadow-md shadow-emerald-600/20 transition-all cursor-pointer active:scale-98"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Complete Visit</span>
-                </button>
+                  <button
+                    onClick={() => handleUpdateStatus(inTreatmentAppt.id, "completed")}
+                    className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold shadow-sm hover:shadow-md shadow-emerald-600/20 transition-all cursor-pointer active:scale-98 min-h-[44px]"
+                  >
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>Complete Visit</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="p-5 sm:p-6 bg-slate-50/70 dark:bg-slate-850/50">
+          <div className="p-4 sm:p-6 bg-slate-50/80 dark:bg-slate-850/50">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-950 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-teal-100 dark:bg-teal-950 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0 shadow-2xs">
                   <UserCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                    Operatory Chair Available
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-slate-100">
+                      Operatory Chair Available
+                    </h3>
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  </h3>
+                  </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {nextWaitingAppt
-                      ? `Next patient in lobby: ${nextWaitingAppt.patient?.first_name} ${nextWaitingAppt.patient?.last_name}`
-                      : "Ready for the next scheduled patient check-in."}
+                      ? `Patient in lobby: ${nextWaitingAppt.patient?.first_name} ${nextWaitingAppt.patient?.last_name}`
+                      : "Operatory sanitized and ready for next patient check-in."}
                   </p>
                 </div>
               </div>
@@ -628,9 +658,9 @@ export default function DashboardPage() {
               {nextWaitingAppt && (
                 <button
                   onClick={() => handleUpdateStatus(nextWaitingAppt.id, "in_treatment")}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm hover:shadow-md shadow-purple-600/20 transition-all cursor-pointer shrink-0 self-start sm:self-center"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-98 text-white text-xs font-extrabold shadow-md shadow-purple-600/25 transition-all cursor-pointer min-h-[44px]"
                 >
-                  <Activity className="w-4 h-4" />
+                  <Activity className="w-4 h-4 animate-pulse shrink-0" />
                   <span>Call to Chair: {nextWaitingAppt.patient?.first_name}</span>
                 </button>
               )}
@@ -808,11 +838,29 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={appt.id}
-                    className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-850/50 transition-colors"
+                    className="p-3.5 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-slate-50/60 dark:hover:bg-slate-850/50 transition-colors"
                   >
+                    {/* Mobile Glanceable Top Bar (Phone only) */}
+                    <div className="flex sm:hidden items-center justify-between gap-2 pb-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-mono font-bold text-slate-800 dark:text-slate-200">
+                        <Clock className="w-3 h-3 text-teal-600 dark:text-teal-400 shrink-0" />
+                        <span>{startTimeStr}</span>
+                        <span className="text-slate-400 font-normal">({apptDateStr})</span>
+                      </div>
+
+                      <span
+                        className={`text-[10px] uppercase tracking-wider font-extrabold px-2.5 py-0.5 rounded-full border ${
+                          statusStyles[appt.status] || "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {appt.status.replace("_", " ")}
+                      </span>
+                    </div>
+
                     {/* Time & Patient Details */}
-                    <div className="flex items-start gap-4">
-                      <div className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-center min-w-[76px] shrink-0">
+                    <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
+                      {/* Desktop Left Time Box */}
+                      <div className="hidden sm:flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-center min-w-[76px] shrink-0">
                         <span className="text-[10px] font-bold text-slate-400 uppercase">
                           {apptDateStr}
                         </span>
@@ -822,17 +870,20 @@ export default function DashboardPage() {
                         <span className="text-[10px] text-slate-400">to {endTimeStr}</span>
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="space-y-1.5 flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <Link
                             href={`/patients/${appt.patient?.id}`}
-                            className="font-bold text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 text-base flex items-center gap-1.5"
+                            className="font-black text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 text-base flex items-center gap-1.5 group truncate"
                           >
-                            {appt.patient?.first_name} {appt.patient?.last_name}
-                            <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="truncate">
+                              {appt.patient?.first_name} {appt.patient?.last_name}
+                            </span>
+                            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-1 transition-transform shrink-0" />
                           </Link>
+
                           <span
-                            className={`text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full border ${
+                            className={`hidden sm:inline-block text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full border ${
                               statusStyles[appt.status] || "bg-slate-100 text-slate-600"
                             }`}
                           >
@@ -840,40 +891,44 @@ export default function DashboardPage() {
                           </span>
                         </div>
 
-                        <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-3 flex-wrap">
+                        <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2.5 sm:gap-3 flex-wrap">
                           <span>
-                            Dentist: <strong className="text-slate-700 dark:text-slate-300">{appt.dentist?.full_name?.split(",")[0] || "Doctor"}</strong>
+                            Attending: <strong className="text-slate-700 dark:text-slate-300">{appt.dentist?.full_name?.split(",")[0] || "Doctor"}</strong>
                           </span>
                           {appt.patient?.phone && (
-                            <span className="flex items-center gap-1 font-mono text-[11px]">
-                              <Phone className="w-3 h-3 text-slate-400" /> {appt.patient.phone}
-                            </span>
+                            <a
+                              href={`tel:${appt.patient.phone}`}
+                              className="inline-flex items-center gap-1 font-mono text-[11px] text-teal-600 dark:text-teal-400 hover:underline"
+                            >
+                              <Phone className="w-3 h-3 shrink-0" />
+                              <span>{appt.patient.phone}</span>
+                            </a>
                           )}
-                        </p>
+                        </div>
 
                         {appt.notes && (
-                          <p className="text-xs text-slate-600 dark:text-slate-300 italic bg-slate-50 dark:bg-slate-800/40 px-2.5 py-1 rounded-md max-w-md">
+                          <p className="text-xs text-slate-600 dark:text-slate-300 italic bg-slate-50 dark:bg-slate-800/50 px-2.5 py-1 rounded-lg max-w-lg border border-slate-200/60 dark:border-slate-750">
                             "{appt.notes}"
                           </p>
                         )}
 
                         {/* Medical Alerts badge */}
                         {appt.patient?.medical_alerts && (
-                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-200 text-[10px] font-bold">
-                            <ShieldAlert className="w-3 h-3 text-rose-600" />
-                            <span>Alert: {appt.patient.medical_alerts}</span>
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-[11px] font-bold">
+                            <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                            <span>Medical Alert: {appt.patient.medical_alerts}</span>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Quick Status Progression & Direct Action Buttons */}
-                    <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
-                      {/* Scheduled -> Mark Arrived */}
+                    {/* Quick Status Progression & Direct Action Buttons (Mobile-Optimized Touch Grid) */}
+                    <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto pt-1 sm:pt-0">
+                      {/* Scheduled / Confirmed -> Mark Arrived */}
                       {(appt.status === "scheduled" || appt.status === "confirmed") && (
                         <button
                           onClick={() => handleUpdateStatus(appt.id, "arrived")}
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-100 hover:bg-amber-200 text-amber-900 transition-colors cursor-pointer"
+                          className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-950/80 dark:text-amber-200 border border-amber-300/70 dark:border-amber-800/80 transition-colors cursor-pointer min-h-[42px] flex items-center justify-center"
                         >
                           Mark Arrived
                         </button>
@@ -883,16 +938,16 @@ export default function DashboardPage() {
                       {appt.status === "arrived" && (
                         <button
                           onClick={() => handleUpdateStatus(appt.id, "in_treatment")}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-100 hover:bg-purple-200 text-purple-900 transition-colors cursor-pointer flex items-center gap-1"
+                          className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-extrabold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-98 text-white transition-all cursor-pointer flex items-center justify-center gap-1.5 min-h-[42px] shadow-sm shadow-purple-600/20"
                         >
-                          <Activity className="w-3.5 h-3.5" />
+                          <Activity className="w-4 h-4 animate-pulse" />
                           <span>Call to Chair</span>
                         </button>
                       )}
 
                       {/* In Treatment -> Record Treatment or Complete */}
                       {appt.status === "in_treatment" && (
-                        <>
+                        <div className="grid grid-cols-2 sm:flex items-center gap-2 flex-1 sm:flex-initial">
                           <button
                             onClick={() =>
                               setTreatmentModal({
@@ -902,7 +957,7 @@ export default function DashboardPage() {
                                 appointmentId: appt.id,
                               })
                             }
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white transition-colors cursor-pointer flex items-center gap-1"
+                            className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white transition-colors cursor-pointer flex items-center justify-center gap-1 min-h-[42px]"
                           >
                             <Sparkles className="w-3.5 h-3.5" />
                             <span>Treatment</span>
@@ -910,17 +965,17 @@ export default function DashboardPage() {
 
                           <button
                             onClick={() => handleUpdateStatus(appt.id, "completed")}
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-100 hover:bg-emerald-200 text-emerald-900 transition-colors cursor-pointer"
+                            className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer min-h-[42px] flex items-center justify-center"
                           >
                             Complete
                           </button>
-                        </>
+                        </div>
                       )}
 
-                      {/* Completed / Cancelled quick odontogram access */}
+                      {/* Odontogram Link Icon */}
                       <Link
                         href={`/patients/${appt.patient?.id}`}
-                        className="p-2 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        className="p-2.5 rounded-xl text-slate-400 hover:text-teal-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors min-h-[42px] min-w-[42px] flex items-center justify-center shrink-0"
                         title="Open Patient Dental Chart & Odontogram"
                       >
                         <ChevronRight className="w-5 h-5" />
