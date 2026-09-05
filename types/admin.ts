@@ -18,4 +18,7 @@ export interface StaffUserRecord {
   invited_at: string | null;
   invite_token?: string | null;
   recovery_token?: string | null;
+  treatment_count?: number;
+  payment_count?: number;
+  appointment_count?: number;
 }

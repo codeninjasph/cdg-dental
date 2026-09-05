@@ -44,7 +44,10 @@ export async function listStaffUsers(): Promise<StaffUserRecord[]> {
       u.invited_at,
       u.confirmation_token,
       u.recovery_token,
-      b.name AS branch_name
+      b.name AS branch_name,
+      (SELECT COUNT(*) FROM public.treatments t WHERE t.dentist_id = p.id) AS treatment_count,
+      (SELECT COUNT(*) FROM public.payment_logs pl WHERE pl.logged_by = p.id) AS payment_count,
+      (SELECT COUNT(*) FROM public.appointments a WHERE a.dentist_id = p.id) AS appointment_count
     FROM public.profiles p
     LEFT JOIN auth.users u ON p.id = u.id
     LEFT JOIN public.branches b ON p.branch_id = b.id
@@ -79,6 +82,9 @@ export async function listStaffUsers(): Promise<StaffUserRecord[]> {
       invited_at: r.invited_at ? new Date(r.invited_at).toISOString() : null,
       invite_token: r.confirmation_token || null,
       recovery_token: r.recovery_token || null,
+      treatment_count: Number(r.treatment_count || 0),
+      payment_count: Number(r.payment_count || 0),
+      appointment_count: Number(r.appointment_count || 0),
     };
   });
 }
@@ -592,7 +598,7 @@ export async function directAdminPasswordReset({
 }
 
 /**
- * Revoke staff access (bans user and kills active sessions)
+ * Revoke staff access (bans user, deactivates doctor directory entry, and kills active sessions)
  */
 export async function revokeStaffAccess(userId: string): Promise<void> {
   if (userId === MASTER_ADMIN_ID) {
@@ -602,23 +608,29 @@ export async function revokeStaffAccess(userId: string): Promise<void> {
   const db = getPool();
 
   // Safety check: do not revoke admin accounts
-  const check = await db.query("SELECT role, email FROM public.profiles p LEFT JOIN auth.users u ON p.id = u.id WHERE p.id = $1", [userId]);
+  const check = await db.query(
+    "SELECT role, email FROM public.profiles p LEFT JOIN auth.users u ON p.id = u.id WHERE p.id = $1",
+    [userId]
+  );
   if (check.rows.length > 0) {
     if (check.rows[0].role === "admin" || check.rows[0].email === MASTER_ADMIN_EMAIL) {
       throw new Error("Administrator accounts cannot be revoked.");
     }
   }
 
-  // 1. Mark inactive in profiles
+  // 1. Mark inactive in public.profiles
   await db.query("UPDATE public.profiles SET is_active = false WHERE id = $1::uuid", [userId]);
 
-  // 2. Ban in auth.users until year 3000
+  // 2. Synchronize with public.dentists so revoked doctors are immediately hidden from public booking
+  await db.query("UPDATE public.dentists SET is_active = false WHERE id = $1", [userId]);
+
+  // 3. Ban in auth.users until year 3000
   await db.query(
     "UPDATE auth.users SET banned_until = '3000-01-01 00:00:00+00', updated_at = now() WHERE id = $1::uuid",
     [userId]
   );
 
-  // 3. Clear active auth sessions
+  // 4. Clear active auth sessions
   try {
     await db.query("DELETE FROM auth.sessions WHERE user_id = $1::uuid", [userId]);
   } catch (e) {
@@ -632,12 +644,23 @@ export async function revokeStaffAccess(userId: string): Promise<void> {
 export async function restoreStaffAccess(userId: string): Promise<void> {
   const db = getPool();
 
+  // 1. Mark active in public.profiles
   await db.query("UPDATE public.profiles SET is_active = true WHERE id = $1::uuid", [userId]);
-  await db.query("UPDATE auth.users SET banned_until = NULL, updated_at = now() WHERE id = $1::uuid", [userId]);
+
+  // 2. Restore active status in public.dentists
+  await db.query("UPDATE public.dentists SET is_active = true WHERE id = $1", [userId]);
+
+  // 3. Clear ban in auth.users
+  await db.query(
+    "UPDATE auth.users SET banned_until = NULL, updated_at = now() WHERE id = $1::uuid",
+    [userId]
+  );
 }
 
 /**
  * Permanently delete a staff user
+ * Protects medical and financial audit history: if the practitioner has recorded clinical treatments
+ * or cashier payment transactions, deletion is rejected with instructions to Revoke instead.
  */
 export async function deleteStaffUser(userId: string): Promise<void> {
   if (userId === MASTER_ADMIN_ID) {
@@ -646,13 +669,53 @@ export async function deleteStaffUser(userId: string): Promise<void> {
 
   const db = getPool();
 
-  // Verify not admin
-  const check = await db.query("SELECT role FROM public.profiles WHERE id = $1", [userId]);
-  if (check.rows.length > 0 && check.rows[0].role === "admin") {
+  // 1. Verify not master admin or admin role
+  const check = await db.query(
+    "SELECT p.role, p.full_name, u.email FROM public.profiles p LEFT JOIN auth.users u ON p.id = u.id WHERE p.id = $1",
+    [userId]
+  );
+  if (check.rows.length > 0 && (check.rows[0].role === "admin" || check.rows[0].email === MASTER_ADMIN_EMAIL)) {
     throw new Error("Administrator accounts cannot be deleted.");
   }
 
-  // Delete profile and auth user
+  const staffName = check.rows[0]?.full_name || "this staff member";
+
+  // 2. Audit Safety Check: check for clinical treatments and cashier payment logs
+  const treatmentsCheck = await db.query(
+    "SELECT COUNT(*) AS count FROM public.treatments WHERE dentist_id = $1::uuid",
+    [userId]
+  );
+  const treatmentsCount = parseInt(treatmentsCheck.rows[0]?.count || "0", 10);
+
+  const paymentsCheck = await db.query(
+    "SELECT COUNT(*) AS count FROM public.payment_logs WHERE logged_by = $1::uuid",
+    [userId]
+  );
+  const paymentsCount = parseInt(paymentsCheck.rows[0]?.count || "0", 10);
+
+  if (treatmentsCount > 0 || paymentsCount > 0) {
+    const reasons: string[] = [];
+    if (treatmentsCount > 0) reasons.push(`${treatmentsCount} medical treatment record(s)`);
+    if (paymentsCount > 0) reasons.push(`${paymentsCount} financial payment transaction(s)`);
+    throw new Error(
+      `Cannot permanently delete "${staffName}" because they have ${reasons.join(" and ")} recorded in the clinic audit ledger. In compliance with clinical governance and legal records retention regulations, please click "Revoke" instead to disable their account while keeping clinical history intact.`
+    );
+  }
+
+  // 3. Clean up non-audit dependencies (unstarted appointments, documents, bills)
+  // Delete draft / empty appointments assigned to this staff
+  await db.query("DELETE FROM public.appointments WHERE dentist_id = $1::uuid", [userId]);
+
+  // Disassociate document uploaded_by
+  await db.query("UPDATE public.patient_documents SET uploaded_by = NULL WHERE uploaded_by = $1::uuid", [userId]);
+
+  // Disassociate any blank bills
+  await db.query("UPDATE public.treatment_bills SET dentist_id = NULL WHERE dentist_id = $1::uuid", [userId]);
+
+  // 4. Remove from public.dentists (to prevent ghost doctors on website)
+  await db.query("DELETE FROM public.dentists WHERE id = $1", [userId]);
+
+  // 5. Delete profile, auth identities, and auth user
   await db.query("DELETE FROM public.profiles WHERE id = $1::uuid", [userId]);
   await db.query("DELETE FROM auth.identities WHERE user_id = $1::uuid", [userId]);
   await db.query("DELETE FROM auth.users WHERE id = $1::uuid", [userId]);

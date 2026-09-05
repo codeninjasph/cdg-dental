@@ -1,14 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { generatePasswordResetToken, directAdminPasswordReset } from "@/lib/db/admin";
-import { ROLE_COOKIE_NAME } from "@/lib/supabase/get-user-role";
-
-function checkAdminRole(request: NextRequest): boolean {
-  const role = request.cookies.get(ROLE_COOKIE_NAME)?.value;
-  return role === "admin";
-}
+import { verifyAdminAuth } from "@/lib/supabase/verify-admin";
 
 export async function POST(request: NextRequest) {
-  if (!checkAdminRole(request)) {
+  const isAdmin = await verifyAdminAuth(request);
+  if (!isAdmin) {
     return NextResponse.json({ error: "Unauthorized. Admin role required." }, { status: 403 });
   }
 

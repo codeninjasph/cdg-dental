@@ -7,6 +7,8 @@ import { StaffUserRecord, MASTER_ADMIN_ID, MASTER_ADMIN_EMAIL } from "@/types/ad
 import { InviteStaffModal } from "@/components/admin/invite-staff-modal";
 import { EditStaffBranchModal } from "@/components/admin/edit-staff-branch-modal";
 import { ResetPasswordModal } from "@/components/admin/reset-password-modal";
+import { DeleteStaffModal } from "@/components/admin/delete-staff-modal";
+import { RevokeStaffModal } from "@/components/admin/revoke-staff-modal";
 import {
   Users,
   UserPlus,
@@ -30,6 +32,8 @@ import {
   Sparkles,
   Pencil,
   KeyRound,
+  FileText,
+  CreditCard,
 } from "lucide-react";
 
 export default function AdminUsersPage() {
@@ -44,6 +48,11 @@ export default function AdminUsersPage() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [editingStaffUser, setEditingStaffUser] = useState<StaffUserRecord | null>(null);
   const [resetPasswordUser, setResetPasswordUser] = useState<StaffUserRecord | null>(null);
+  const [deletingStaffUser, setDeletingStaffUser] = useState<StaffUserRecord | null>(null);
+  const [revokingStaffUser, setRevokingStaffUser] = useState<{
+    user: StaffUserRecord;
+    mode: "revoke" | "restore";
+  } | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null);
 
@@ -65,89 +74,6 @@ export default function AdminUsersPage() {
   useEffect(() => {
     fetchStaff();
   }, []);
-
-  // Revoke staff access
-  const handleRevoke = async (user: StaffUserRecord) => {
-    if (user.id === MASTER_ADMIN_ID || user.email === MASTER_ADMIN_EMAIL) {
-      showToast("Cannot revoke master administrator account.", "error");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Are you sure you want to revoke access for ${user.full_name}? They will be immediately signed out and banned from accessing the clinic system.`
-    );
-    if (!confirmed) return;
-
-    setActionLoadingId(user.id);
-    try {
-      const res = await fetch("/api/admin/users/revoke", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to revoke access.");
-
-      showToast(`Access revoked for ${user.full_name}.`, "info");
-      await fetchStaff();
-    } catch (err: any) {
-      showToast(err.message || "Failed to revoke access.", "error");
-    } finally {
-      setActionLoadingId(null);
-    }
-  };
-
-  // Restore staff access
-  const handleRestore = async (user: StaffUserRecord) => {
-    setActionLoadingId(user.id);
-    try {
-      const res = await fetch("/api/admin/users/restore", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to restore access.");
-
-      showToast(`Access restored for ${user.full_name}.`, "success");
-      await fetchStaff();
-    } catch (err: any) {
-      showToast(err.message || "Failed to restore access.", "error");
-    } finally {
-      setActionLoadingId(null);
-    }
-  };
-
-  // Delete staff user
-  const handleDelete = async (user: StaffUserRecord) => {
-    if (user.id === MASTER_ADMIN_ID || user.email === MASTER_ADMIN_EMAIL) {
-      showToast("Cannot delete master administrator account.", "error");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Permanently delete account for ${user.full_name}? This action cannot be undone.`
-    );
-    if (!confirmed) return;
-
-    setActionLoadingId(user.id);
-    try {
-      const res = await fetch("/api/admin/users", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to delete user.");
-
-      showToast(`User ${user.full_name} deleted.`, "info");
-      await fetchStaff();
-    } catch (err: any) {
-      showToast(err.message || "Failed to delete user.", "error");
-    } finally {
-      setActionLoadingId(null);
-    }
-  };
 
   // Copy pending invite link
   const handleCopyInvite = (user: StaffUserRecord) => {
@@ -468,8 +394,28 @@ export default function AdminUsersPage() {
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                              {user.email || "No email linked"}
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                              <span>{user.email || "No email linked"}</span>
+                              {((user.treatment_count || 0) > 0 || (user.payment_count || 0) > 0) && (
+                                <span
+                                  title={`${user.treatment_count || 0} treatments, ${user.payment_count || 0} payments recorded`}
+                                  className="inline-flex items-center gap-1.5 px-1.5 py-0.2 rounded text-[10px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200/80 dark:border-slate-700"
+                                >
+                                  {(user.treatment_count || 0) > 0 && (
+                                    <span className="flex items-center gap-0.5 text-teal-700 dark:text-teal-300">
+                                      <FileText className="w-2.5 h-2.5" />
+                                      {user.treatment_count} treatments
+                                    </span>
+                                  )}
+                                  {(user.treatment_count || 0) > 0 && (user.payment_count || 0) > 0 && <span>•</span>}
+                                  {(user.payment_count || 0) > 0 && (
+                                    <span className="flex items-center gap-0.5 text-emerald-700 dark:text-emerald-300">
+                                      <CreditCard className="w-2.5 h-2.5" />
+                                      {user.payment_count} payments
+                                    </span>
+                                  )}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -566,7 +512,7 @@ export default function AdminUsersPage() {
                               {/* Revoke or Restore button */}
                               {user.status === "revoked" ? (
                                 <button
-                                  onClick={() => handleRestore(user)}
+                                  onClick={() => setRevokingStaffUser({ user, mode: "restore" })}
                                   title="Restore staff access"
                                   className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 text-xs font-semibold transition-colors cursor-pointer"
                                 >
@@ -575,7 +521,7 @@ export default function AdminUsersPage() {
                                 </button>
                               ) : (
                                 <button
-                                  onClick={() => handleRevoke(user)}
+                                  onClick={() => setRevokingStaffUser({ user, mode: "revoke" })}
                                   title="Revoke access immediately"
                                   className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/50 text-xs font-semibold transition-colors cursor-pointer"
                                 >
@@ -586,7 +532,7 @@ export default function AdminUsersPage() {
 
                               {/* Delete button */}
                               <button
-                                onClick={() => handleDelete(user)}
+                                onClick={() => setDeletingStaffUser(user)}
                                 title="Delete user"
                                 className="p-1.5 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-200 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-rose-950 dark:hover:text-rose-300 transition-colors cursor-pointer"
                               >
@@ -625,6 +571,23 @@ export default function AdminUsersPage() {
         isOpen={Boolean(resetPasswordUser)}
         onClose={() => setResetPasswordUser(null)}
         user={resetPasswordUser}
+        onSuccess={fetchStaff}
+      />
+
+      {/* ── Delete Staff Confirmation Modal ── */}
+      <DeleteStaffModal
+        isOpen={Boolean(deletingStaffUser)}
+        onClose={() => setDeletingStaffUser(null)}
+        user={deletingStaffUser}
+        onSuccess={fetchStaff}
+      />
+
+      {/* ── Revoke / Restore Staff Confirmation Modal ── */}
+      <RevokeStaffModal
+        isOpen={Boolean(revokingStaffUser)}
+        onClose={() => setRevokingStaffUser(null)}
+        user={revokingStaffUser?.user || null}
+        mode={revokingStaffUser?.mode || "revoke"}
         onSuccess={fetchStaff}
       />
     </div>

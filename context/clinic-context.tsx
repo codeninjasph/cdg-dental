@@ -153,8 +153,12 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         // 1. Fetch branches
         const branchList = await refreshBranches();
 
-        // 2. Fetch staff profiles
-        const { data: sData } = await supabase.from("profiles").select("*").order("full_name");
+        // 2. Fetch active staff profiles for clinic operatory & scheduling
+        const { data: sData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("is_active", true)
+          .order("full_name");
         const normalizedStaff: Profile[] = (sData || []).map((s) => ({
           ...s,
           role: normalizeRole(s.role),
