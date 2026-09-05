@@ -135,6 +135,13 @@ export async function inviteStaffUser({
       encrypted_password,
       confirmation_token,
       confirmation_sent_at,
+      recovery_token,
+      email_change_token_new,
+      email_change_token_current,
+      email_change,
+      phone_change,
+      phone_change_token,
+      reauthentication_token,
       invited_at,
       raw_app_meta_data,
       raw_user_meta_data,
@@ -149,6 +156,13 @@ export async function inviteStaffUser({
       extensions.crypt($3, extensions.gen_salt('bf', 10)),
       $4,
       now(),
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
       now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
       $5::jsonb,
@@ -162,6 +176,45 @@ export async function inviteStaffUser({
       crypto.randomBytes(16).toString("hex"), // temporary random password
       token,
       JSON.stringify(userMetaData),
+    ]
+  );
+
+  // 2b. Insert into auth.identities for GoTrue schema compatibility
+  await db.query(
+    `
+    INSERT INTO auth.identities (
+      id,
+      user_id,
+      identity_data,
+      provider,
+      provider_id,
+      last_sign_in_at,
+      created_at,
+      updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      $1::uuid,
+      $2::jsonb,
+      'email',
+      $1::text,
+      now(),
+      now(),
+      now()
+    )
+    ON CONFLICT (provider, provider_id) DO UPDATE SET
+      identity_data = EXCLUDED.identity_data,
+      updated_at = now();
+    `,
+    [
+      userId,
+      JSON.stringify({
+        sub: userId,
+        role: dbRole,
+        email: cleanEmail,
+        full_name: fullName.trim(),
+        email_verified: false,
+        phone_verified: false,
+      }),
     ]
   );
 
@@ -256,7 +309,7 @@ export async function activateInvitedStaffUser({
   const row = userQuery.rows[0];
 
   // If already activated and confirmed with no pending token
-  if (row.email_confirmed_at && !row.confirmation_token) {
+  if (row.email_confirmed_at && (!row.confirmation_token || row.confirmation_token === "")) {
     throw new Error("This account is already activated. Please sign in with your email and password.");
   }
 
@@ -272,11 +325,56 @@ export async function activateInvitedStaffUser({
     SET 
       encrypted_password = extensions.crypt($1, extensions.gen_salt('bf', 10)),
       email_confirmed_at = now(),
-      confirmation_token = NULL,
+      confirmed_at = now(),
+      confirmation_token = '',
+      recovery_token = '',
+      email_change_token_new = '',
+      email_change_token_current = '',
+      email_change = '',
+      reauthentication_token = '',
       updated_at = now()
     WHERE id = $2::uuid
     `,
     [password, row.id]
+  );
+
+  // 2b. Ensure identity exists and is verified in auth.identities
+  await db.query(
+    `
+    INSERT INTO auth.identities (
+      id,
+      user_id,
+      identity_data,
+      provider,
+      provider_id,
+      last_sign_in_at,
+      created_at,
+      updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      $1::uuid,
+      $2::jsonb,
+      'email',
+      $1::text,
+      now(),
+      now(),
+      now()
+    )
+    ON CONFLICT (provider, provider_id) DO UPDATE SET
+      identity_data = EXCLUDED.identity_data,
+      updated_at = now();
+    `,
+    [
+      row.id,
+      JSON.stringify({
+        sub: row.id,
+        role: row.role || "secretary",
+        email: cleanEmail,
+        full_name: row.full_name || cleanEmail,
+        email_verified: true,
+        phone_verified: false,
+      }),
+    ]
   );
 
   // 3. Ensure profile is marked active in public.profiles
