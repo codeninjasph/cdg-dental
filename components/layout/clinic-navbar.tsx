@@ -213,80 +213,91 @@ export function ClinicNavbar() {
             {/* ── Controls ── */}
             <div className="flex items-center gap-1.5 lg:gap-2 shrink-0">
 
-              {/* Branch Dropdown */}
+              {/* Branch Display: Dropdown Switcher for Admin, Non-interactive indicator for Secretary */}
               {branches.length > 0 && (
                 <div className="hidden lg:block relative" ref={branchRef}>
-                  <button
-                    onClick={() => {
-                      setBranchOpen((o) => !o);
-                      setRoleOpen(false);
-                    }}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 lg:px-3 lg:py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-xs font-medium text-slate-300 hover:text-white transition-all duration-200 cursor-pointer"
-                  >
-                    <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                    <span className="max-w-[85px] xl:max-w-[120px] truncate text-xs">
-                      {activeBranch?.name?.split("—")[1]?.trim() ??
-                        activeBranch?.name ??
-                        "Select Branch"}
-                    </span>
-                    <ChevronDown
-                      className={`w-3 h-3 text-slate-500 transition-transform duration-200 shrink-0 ${
-                        branchOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-
-                  {branchOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-slate-900 border border-white/[0.08] shadow-2xl shadow-black/60 backdrop-blur-xl overflow-hidden z-50">
-                      <div className="px-3 py-2 border-b border-white/[0.06]">
-                        <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-                          Select Branch
-                        </p>
-                      </div>
-                      {branches.map((b) => (
-                        <button
-                          key={b.id}
-                          onClick={() => {
-                            setActiveBranch(b);
-                            setBranchOpen(false);
-                          }}
-                          className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium transition-colors text-left cursor-pointer ${
-                            activeBranch?.id === b.id
-                              ? "bg-teal-500/15 text-teal-300"
-                              : "text-slate-400 hover:bg-white/[0.05] hover:text-slate-200"
+                  {currentRole === "secretary" || !isAdmin ? (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 lg:py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs font-medium text-slate-300">
+                      <Building2 className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                      <span className="max-w-[130px] xl:max-w-[170px] truncate text-xs">
+                        {activeBranch?.name?.split("—")[1]?.trim() ??
+                          activeBranch?.name ??
+                          "Assigned Branch"}
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setBranchOpen((o) => !o);
+                          setRoleOpen(false);
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 lg:px-3 lg:py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-xs font-medium text-slate-300 hover:text-white transition-all duration-200 cursor-pointer"
+                      >
+                        <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                        <span className="max-w-[85px] xl:max-w-[120px] truncate text-xs">
+                          {activeBranch?.name?.split("—")[1]?.trim() ??
+                            activeBranch?.name ??
+                            "Select Branch"}
+                        </span>
+                        <ChevronDown
+                          className={`w-3 h-3 text-slate-500 transition-transform duration-200 shrink-0 ${
+                            branchOpen ? "rotate-180" : ""
                           }`}
-                        >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                              activeBranch?.id === b.id
-                                ? "bg-teal-400"
-                                : "bg-slate-600"
-                            }`}
-                          />
-                          {b.name}
-                        </button>
-                      ))}
-                      {isAdmin && (
-                        <div className="p-2 border-t border-white/[0.06] bg-slate-950/40 space-y-1">
-                          <Link
-                            href="/admin/branches"
-                            onClick={() => setBranchOpen(false)}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 transition-colors cursor-pointer"
-                          >
-                            <Building2 className="w-3.5 h-3.5" />
-                            <span>Manage Clinic Branches</span>
-                          </Link>
-                          <Link
-                            href="/admin/hours"
-                            onClick={() => setBranchOpen(false)}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors cursor-pointer"
-                          >
-                            <Clock className="w-3.5 h-3.5" />
-                            <span>Dental Hours & Schedules</span>
-                          </Link>
+                        />
+                      </button>
+
+                      {branchOpen && (
+                        <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-slate-900 border border-white/[0.08] shadow-2xl shadow-black/60 backdrop-blur-xl overflow-hidden z-50">
+                          <div className="px-3 py-2 border-b border-white/[0.06]">
+                            <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                              Select Branch
+                            </p>
+                          </div>
+                          {branches.map((b) => (
+                            <button
+                              key={b.id}
+                              onClick={() => {
+                                setActiveBranch(b);
+                                setBranchOpen(false);
+                              }}
+                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium transition-colors text-left cursor-pointer ${
+                                activeBranch?.id === b.id
+                                  ? "bg-teal-500/15 text-teal-300"
+                                  : "text-slate-400 hover:bg-white/[0.05] hover:text-slate-200"
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                  activeBranch?.id === b.id
+                                    ? "bg-teal-400"
+                                    : "bg-slate-600"
+                                }`}
+                              />
+                              {b.name}
+                            </button>
+                          ))}
+                          <div className="p-2 border-t border-white/[0.06] bg-slate-950/40 space-y-1">
+                            <Link
+                              href="/admin/branches"
+                              onClick={() => setBranchOpen(false)}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 transition-colors cursor-pointer"
+                            >
+                              <Building2 className="w-3.5 h-3.5" />
+                              <span>Manage Clinic Branches</span>
+                            </Link>
+                            <Link
+                              href="/admin/hours"
+                              onClick={() => setBranchOpen(false)}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors cursor-pointer"
+                            >
+                              <Clock className="w-3.5 h-3.5" />
+                              <span>Dental Hours & Schedules</span>
+                            </Link>
+                          </div>
                         </div>
                       )}
-                    </div>
+                    </>
                   )}
                 </div>
               )}

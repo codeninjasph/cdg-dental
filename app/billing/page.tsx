@@ -232,9 +232,15 @@ export default function BillingPage() {
             <CreditCard className="w-6 h-6 text-teal-600" />
             Financial Ledger & POS Terminal
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Automated invoice generation, payment logs (GCash, Cash, Card), and real-time balance calculations.
-          </p>
+          <div className="flex items-center gap-2 flex-wrap mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Automated invoice generation, payment logs (GCash, Cash, Card), and real-time balance calculations.
+            </p>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-900/60">
+              <Building2 className="w-3 h-3 text-teal-600" />
+              <span>Branch: <strong>{activeBranch?.name || "Downtown CDO (Limketkai Hub)"}</strong></span>
+            </span>
+          </div>
         </div>
 
         <Link
@@ -247,7 +253,7 @@ export default function BillingPage() {
         </Link>
       </div>
 
-      {/* Date Quick Filter & Branch Scoping Bar */}
+      {/* Date Quick Filter Bar */}
       <div className="flex items-center justify-between gap-3 flex-wrap bg-white dark:bg-slate-900 p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-1.5">
@@ -278,13 +284,13 @@ export default function BillingPage() {
             ))}
           </div>
 
-          {/* Branch Scoping Pill / Selector */}
-          <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 pl-3">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <Building2 className="w-3.5 h-3.5 text-teal-600" />
-              Branch:
-            </span>
-            {canSelectAllBranches ? (
+          {/* Branch Selector (Only shown if user has multi-branch access) */}
+          {canSelectAllBranches && (
+            <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 pl-3">
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                <Building2 className="w-3.5 h-3.5 text-teal-600" />
+                Branch:
+              </span>
               <select
                 value={effectiveBranchId}
                 onChange={(e) => {
@@ -300,12 +306,8 @@ export default function BillingPage() {
                   </option>
                 ))}
               </select>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-900/60">
-                {activeBranch?.name || "Assigned Branch"}
-              </span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <span className="text-[11px] text-slate-400 px-2 font-medium">
