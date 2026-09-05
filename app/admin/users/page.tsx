@@ -6,6 +6,7 @@ import { useClinic } from "@/context/clinic-context";
 import { StaffUserRecord, MASTER_ADMIN_ID, MASTER_ADMIN_EMAIL } from "@/types/admin";
 import { InviteStaffModal } from "@/components/admin/invite-staff-modal";
 import { EditStaffBranchModal } from "@/components/admin/edit-staff-branch-modal";
+import { ResetPasswordModal } from "@/components/admin/reset-password-modal";
 import {
   Users,
   UserPlus,
@@ -28,6 +29,7 @@ import {
   AlertTriangle,
   Sparkles,
   Pencil,
+  KeyRound,
 } from "lucide-react";
 
 export default function AdminUsersPage() {
@@ -41,6 +43,7 @@ export default function AdminUsersPage() {
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [editingStaffUser, setEditingStaffUser] = useState<StaffUserRecord | null>(null);
+  const [resetPasswordUser, setResetPasswordUser] = useState<StaffUserRecord | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null);
 
@@ -550,6 +553,16 @@ export default function AdminUsersPage() {
                                 <span>Branch</span>
                               </button>
 
+                              {/* Password Reset button */}
+                              <button
+                                onClick={() => setResetPasswordUser(user)}
+                                title="Reset password or generate recovery link"
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 text-xs font-semibold transition-colors cursor-pointer"
+                              >
+                                <KeyRound className="w-3 h-3" />
+                                <span>Reset Key</span>
+                              </button>
+
                               {/* Revoke or Restore button */}
                               {user.status === "revoked" ? (
                                 <button
@@ -604,6 +617,14 @@ export default function AdminUsersPage() {
         isOpen={Boolean(editingStaffUser)}
         onClose={() => setEditingStaffUser(null)}
         staffUser={editingStaffUser}
+        onSuccess={fetchStaff}
+      />
+
+      {/* ── Reset Staff Password Modal ── */}
+      <ResetPasswordModal
+        isOpen={Boolean(resetPasswordUser)}
+        onClose={() => setResetPasswordUser(null)}
+        user={resetPasswordUser}
         onSuccess={fetchStaff}
       />
     </div>

@@ -43,6 +43,7 @@ export async function listStaffUsers(): Promise<StaffUserRecord[]> {
       u.last_sign_in_at,
       u.invited_at,
       u.confirmation_token,
+      u.recovery_token,
       b.name AS branch_name
     FROM public.profiles p
     LEFT JOIN auth.users u ON p.id = u.id
@@ -77,6 +78,7 @@ export async function listStaffUsers(): Promise<StaffUserRecord[]> {
       last_sign_in_at: r.last_sign_in_at ? new Date(r.last_sign_in_at).toISOString() : null,
       invited_at: r.invited_at ? new Date(r.invited_at).toISOString() : null,
       invite_token: r.confirmation_token || null,
+      recovery_token: r.recovery_token || null,
     };
   });
 }
@@ -392,6 +394,182 @@ export async function activateInvitedStaffUser({
     role: row.role || "secretary",
     fullName: row.full_name || cleanEmail,
     email: cleanEmail,
+  };
+}
+
+/**
+ * Generate a password reset recovery token and reset URL for a staff user
+ */
+export async function generatePasswordResetToken({
+  userId,
+  origin,
+}: {
+  userId: string;
+  origin: string;
+}): Promise<{ token: string; resetUrl: string; email: string; fullName: string }> {
+  const db = getPool();
+
+  const userQuery = await db.query(
+    `
+    SELECT u.id, u.email, p.full_name
+    FROM auth.users u
+    LEFT JOIN public.profiles p ON p.id = u.id
+    WHERE u.id = $1::uuid
+    `,
+    [userId]
+  );
+
+  if (userQuery.rows.length === 0) {
+    throw new Error("Staff user not found.");
+  }
+
+  const row = userQuery.rows[0];
+  const email = row.email;
+  if (!email) {
+    throw new Error("This user does not have a linked email address.");
+  }
+
+  const token = crypto.randomBytes(24).toString("hex");
+
+  await db.query(
+    `
+    UPDATE auth.users
+    SET 
+      recovery_token = $1,
+      recovery_sent_at = now(),
+      updated_at = now()
+    WHERE id = $2::uuid
+    `,
+    [token, userId]
+  );
+
+  const resetUrl = `${origin}/auth/update-password?token=${token}&email=${encodeURIComponent(email)}`;
+
+  return {
+    token,
+    resetUrl,
+    email,
+    fullName: row.full_name || email,
+  };
+}
+
+/**
+ * Reset staff password using the recovery token
+ */
+export async function resetStaffPasswordWithToken({
+  email,
+  token,
+  password,
+}: {
+  email: string;
+  token: string;
+  password: string;
+}): Promise<{ success: boolean; role: string; fullName: string; email: string }> {
+  const db = getPool();
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanToken = token.trim();
+
+  if (!cleanEmail || !cleanToken || !password) {
+    throw new Error("Email, reset token, and new password are required.");
+  }
+
+  if (password.length < 6) {
+    throw new Error("Password must be at least 6 characters long.");
+  }
+
+  const userQuery = await db.query(
+    `
+    SELECT u.id, u.email, u.recovery_token, p.full_name, p.role
+    FROM auth.users u
+    LEFT JOIN public.profiles p ON p.id = u.id
+    WHERE LOWER(u.email) = $1
+    `,
+    [cleanEmail]
+  );
+
+  if (userQuery.rows.length === 0) {
+    throw new Error("No account found for this email address.");
+  }
+
+  const row = userQuery.rows[0];
+
+  if (!row.recovery_token || row.recovery_token !== cleanToken) {
+    throw new Error("Invalid or expired password reset token. Please request a new link from your administrator.");
+  }
+
+  // Update password in auth.users
+  await db.query(
+    `
+    UPDATE auth.users
+    SET 
+      encrypted_password = extensions.crypt($1, extensions.gen_salt('bf', 10)),
+      recovery_token = '',
+      email_confirmed_at = COALESCE(email_confirmed_at, now()),
+      confirmed_at = COALESCE(confirmed_at, now()),
+      updated_at = now()
+    WHERE id = $2::uuid
+    `,
+    [password, row.id]
+  );
+
+  return {
+    success: true,
+    role: row.role || "dentist",
+    fullName: row.full_name || cleanEmail,
+    email: cleanEmail,
+  };
+}
+
+/**
+ * Direct admin password reset (override)
+ */
+export async function directAdminPasswordReset({
+  userId,
+  password,
+}: {
+  userId: string;
+  password: string;
+}): Promise<{ success: boolean; fullName: string; email: string }> {
+  if (password.length < 6) {
+    throw new Error("Password must be at least 6 characters long.");
+  }
+
+  const db = getPool();
+
+  const userQuery = await db.query(
+    `
+    SELECT u.id, u.email, p.full_name
+    FROM auth.users u
+    LEFT JOIN public.profiles p ON p.id = u.id
+    WHERE u.id = $1::uuid
+    `,
+    [userId]
+  );
+
+  if (userQuery.rows.length === 0) {
+    throw new Error("User not found.");
+  }
+
+  const row = userQuery.rows[0];
+
+  await db.query(
+    `
+    UPDATE auth.users
+    SET 
+      encrypted_password = extensions.crypt($1, extensions.gen_salt('bf', 10)),
+      recovery_token = '',
+      email_confirmed_at = COALESCE(email_confirmed_at, now()),
+      confirmed_at = COALESCE(confirmed_at, now()),
+      updated_at = now()
+    WHERE id = $2::uuid
+    `,
+    [password, userId]
+  );
+
+  return {
+    success: true,
+    fullName: row.full_name || row.email,
+    email: row.email,
   };
 }
 

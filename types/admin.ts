@@ -17,4 +17,5 @@ export interface StaffUserRecord {
   last_sign_in_at: string | null;
   invited_at: string | null;
   invite_token?: string | null;
+  recovery_token?: string | null;
 }

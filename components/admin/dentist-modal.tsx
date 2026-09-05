@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useClinic } from "@/context/clinic-context";
 import { CDO_BRANCHES_DATA } from "@/lib/cdo-clinic-data";
-import { isBranchMatch } from "@/lib/duty-schedule";
+import { isBranchMatch, parseDaysOfWeek } from "@/lib/duty-schedule";
 import {
   X,
   Sparkles,
@@ -665,38 +665,116 @@ export function DentistModal({
                         </div>
                       </div>
 
-                      {/* Quick Presets for Days & Hours */}
-                      <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-200/50 dark:border-slate-700/50 text-[10px]">
-                        <span className="text-slate-400 font-medium mr-1">Days:</span>
-                        {["Mon, Wed, Fri", "Tue, Thu, Sat", "Mon – Fri", "Mon – Sat"].map((preset) => (
-                          <button
-                            key={preset}
-                            type="button"
-                            onClick={() => handleScheduleChange(idx, "days", preset)}
-                            className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
-                              row.days === preset
-                                ? "bg-teal-600 text-white font-bold"
-                                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 border border-slate-200 dark:border-slate-700"
-                            }`}
-                          >
-                            {preset}
-                          </button>
-                        ))}
-                        <span className="text-slate-400 font-medium ml-2 mr-1">Hours:</span>
-                        {["9:00 AM – 5:00 PM", "9:00 AM – 6:00 PM", "10:00 AM – 8:00 PM"].map((preset) => (
-                          <button
-                            key={preset}
-                            type="button"
-                            onClick={() => handleScheduleChange(idx, "hours", preset)}
-                            className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
-                              row.hours === preset
-                                ? "bg-teal-600 text-white font-bold"
-                                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 border border-slate-200 dark:border-slate-700"
-                            }`}
-                          >
-                            {preset}
-                          </button>
-                        ))}
+                      {/* Clickable Days of Week Toggles */}
+                      <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[11px] font-bold text-slate-500 mr-0.5 shrink-0">
+                              Click Days:
+                            </span>
+                            {[
+                              { index: 1, label: "Mon" },
+                              { index: 2, label: "Tue" },
+                              { index: 3, label: "Wed" },
+                              { index: 4, label: "Thu" },
+                              { index: 5, label: "Fri" },
+                              { index: 6, label: "Sat" },
+                              { index: 0, label: "Sun" },
+                            ].map((d) => {
+                              const activeIndices = parseDaysOfWeek(row.days || "");
+                              const isSelected = activeIndices.includes(d.index);
+
+                              return (
+                                <button
+                                  key={d.index}
+                                  type="button"
+                                  onClick={() => {
+                                    const currentIndices = parseDaysOfWeek(row.days || "");
+                                    let nextIndices: number[];
+                                    if (currentIndices.includes(d.index)) {
+                                      nextIndices = currentIndices.filter((x) => x !== d.index);
+                                    } else {
+                                      nextIndices = [...currentIndices, d.index];
+                                    }
+
+                                    const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+                                    const DAY_LABELS: Record<number, string> = {
+                                      1: "Mon",
+                                      2: "Tue",
+                                      3: "Wed",
+                                      4: "Thu",
+                                      5: "Fri",
+                                      6: "Sat",
+                                      0: "Sun",
+                                    };
+
+                                    let formatted = "";
+                                    if (nextIndices.length === 7) {
+                                      formatted = "Daily";
+                                    } else if (nextIndices.length > 0) {
+                                      const sorted = DAY_ORDER.filter((x) => nextIndices.includes(x));
+                                      if (sorted.length === 5 && [1, 2, 3, 4, 5].every((x) => sorted.includes(x))) {
+                                        formatted = "Mon – Fri";
+                                      } else if (sorted.length === 6 && [1, 2, 3, 4, 5, 6].every((x) => sorted.includes(x))) {
+                                        formatted = "Mon – Sat";
+                                      } else {
+                                        formatted = sorted.map((x) => DAY_LABELS[x]).join(", ");
+                                      }
+                                    }
+
+                                    handleScheduleChange(idx, "days", formatted);
+                                  }}
+                                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                    isSelected
+                                      ? "bg-teal-600 text-white shadow-xs scale-105"
+                                      : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-teal-400 hover:text-teal-600 dark:hover:border-teal-500"
+                                  }`}
+                                >
+                                  {d.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Quick Presets */}
+                          <div className="flex items-center gap-1 shrink-0 flex-wrap">
+                            {[
+                              { label: "Mon, Wed, Fri", val: "Mon, Wed, Fri" },
+                              { label: "Tue, Thu, Sat", val: "Tue, Thu, Sat" },
+                              { label: "Mon – Fri", val: "Mon – Fri" },
+                              { label: "All Days", val: "Daily" },
+                              { label: "Clear", val: "" },
+                            ].map((preset) => (
+                              <button
+                                key={preset.label}
+                                type="button"
+                                onClick={() => handleScheduleChange(idx, "days", preset.val)}
+                                className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Quick Presets for Hours */}
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px]">
+                          <span className="text-slate-400 font-medium mr-1">Hours Presets:</span>
+                          {["9:00 AM – 5:00 PM", "9:00 AM – 6:00 PM", "10:00 AM – 8:00 PM"].map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => handleScheduleChange(idx, "hours", preset)}
+                              className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                                row.hours === preset
+                                  ? "bg-teal-600 text-white font-bold"
+                                  : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 border border-slate-200 dark:border-slate-700"
+                              }`}
+                            >
+                              {preset}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   );
