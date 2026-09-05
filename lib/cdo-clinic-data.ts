@@ -76,7 +76,7 @@ export const CDO_BRANCHES_DATA = [
 
 export const CDO_DENTISTS_DATA: DentistProfileData[] = [
   {
-    id: "00000000-0000-0000-0000-000000000010",
+    id: "3cb85fbe-8060-4347-915a-1d400aa160ca",
     name: "Dr. Kenneth Galve, DDM, FICOI",
     title: "Lead Dental Surgeon & Cosmetic Dentistry Specialist",
     prcLicense: "0074218",

@@ -249,32 +249,7 @@ export async function createPublicBooking(
     }
   }
 
-  // 3. Resolve Dentist
-  let dentistId = input.dentist_id;
-  const activeDentists = await listDentists(true);
-
-  if (!dentistId || dentistId === "any") {
-    // Prioritize an active dentist who is scheduled on duty at this branch and date
-    const onDutyMatch = activeDentists.find((d) => {
-      const duty = getDentistDutyForDate(d, branch.name, input.date);
-      return duty.isOnDuty;
-    });
-
-    if (onDutyMatch) {
-      dentistId = onDutyMatch.id;
-    } else if (activeDentists.length > 0) {
-      // Fallback to first active doctor if none explicitly rostered
-      dentistId = activeDentists[0].id;
-    } else {
-      // Fallback to default dentist ID if table empty
-      dentistId = "00000000-0000-0000-0000-000000000010";
-    }
-  }
-
-  const assignedDentist = activeDentists.find((d) => d.id === dentistId);
-  const dentistName = assignedDentist ? assignedDentist.name : "Attending CDG Dental Specialist";
-
-  // 4. Double-Booking Conflict Check (PST UTC+8 & Range Overlap across all branches)
+  // 3. Compute slot boundaries and resolve Dentist
   const startTimestamp = `${input.date}T${input.time}:00+08:00`;
   const startDate = new Date(startTimestamp);
   const endDate = new Date(startDate.getTime() + slotMinutes * 60000);
@@ -285,6 +260,50 @@ export async function createPublicBooking(
   const endM = totalMins % 60;
   const formattedEndTime = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
 
+  let dentistId = input.dentist_id;
+  const activeDentists = await listDentists(true);
+
+  if (!dentistId || dentistId === "any") {
+    // 3a. Find on-duty dentists at this branch and date
+    const onDutyDentists = activeDentists.filter((d) => {
+      const duty = getDentistDutyForDate(d, branch.name, input.date);
+      return duty.isOnDuty;
+    });
+
+    const candidateDentists = onDutyDentists.length > 0 ? onDutyDentists : activeDentists;
+    let selectedCandidateId: string | null = null;
+
+    // 3b. Find the first candidate doctor who is completely free (no overlapping appointment)
+    for (const candidate of candidateDentists) {
+      const { rows: conflict } = await db.query(
+        `SELECT id FROM public.appointments
+         WHERE dentist_id = $1::uuid
+           AND status != 'cancelled'
+           AND (start_time < $3::timestamptz AND end_time > $2::timestamptz)
+         LIMIT 1;`,
+        [candidate.id, startDate.toISOString(), endDate.toISOString()]
+      );
+
+      if (conflict.length === 0) {
+        selectedCandidateId = candidate.id;
+        break;
+      }
+    }
+
+    if (selectedCandidateId) {
+      dentistId = selectedCandidateId;
+    } else if (candidateDentists.length > 0) {
+      // All candidates busy; assign primary candidate so conflict check cleanly reports the busy slot
+      dentistId = candidateDentists[0].id;
+    } else {
+      dentistId = "3cb85fbe-8060-4347-915a-1d400aa160ca";
+    }
+  }
+
+  const assignedDentist = activeDentists.find((d) => d.id === dentistId);
+  const dentistName = assignedDentist ? assignedDentist.name : "Attending CDG Dental Specialist";
+
+  // 4. Double-Booking Conflict Check (PST UTC+8 & Range Overlap across all branches)
   const { rows: conflictRows } = await db.query(
     `SELECT id FROM public.appointments
      WHERE dentist_id = $1::uuid
@@ -298,6 +317,17 @@ export async function createPublicBooking(
       `Appointment Conflict: This time slot (${input.time}) has already been reserved for ${dentistName}. Please select another time or doctor.`
     );
   }
+
+  // Ensure dentist profile exists in public.profiles so foreign key constraints NEVER fail
+  await db.query(
+    `INSERT INTO public.profiles (id, full_name, role, is_active, created_at)
+     VALUES ($1::uuid, $2, 'dentist'::public.user_role, true, now())
+     ON CONFLICT (id) DO UPDATE SET
+       full_name = EXCLUDED.full_name,
+       role = 'dentist'::public.user_role,
+       is_active = true;`,
+    [dentistId, dentistName]
+  );
 
   // 5. Patient Record: Find existing or insert new
   const cleanPhone = input.phone.trim();

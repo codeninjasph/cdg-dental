@@ -69,7 +69,7 @@ export function AddTreatmentModal({
         .from("treatments")
         .insert({
           patient_id: patientId,
-          dentist_id: dentistId || dentists[0]?.id || "00000000-0000-0000-0000-000000000010",
+          dentist_id: dentistId || dentists[0]?.id || "3cb85fbe-8060-4347-915a-1d400aa160ca",
           tooth_number: tNum,
           procedure_name: procedureName.trim(),
           clinical_notes: clinicalNotes.trim() || null,

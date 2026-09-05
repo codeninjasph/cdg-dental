@@ -240,6 +240,27 @@ export async function inviteStaffUser({
     [userId, fullName.trim(), dbRole, branchId || null]
   );
 
+  // 4. Automatically harmonize invited dentists into public.dentists
+  if (role === "dentist") {
+    await db.query(
+      `
+      INSERT INTO public.dentists (
+        id, name, title, prc_license, photo_url, specialty, education,
+        certifications, experience_years, bio, clinic_days, display_order, is_active
+      ) VALUES (
+        $1, $2, 'Attending Dental Specialist', 'PRC Verified', '/images/dentist-dr-kenneth.jpg',
+        'General Dental Medicine & Patient Care', 'Doctor of Dental Medicine', '[]'::jsonb,
+        5, 'Dedicated dental specialist at CDG Dental Clinic delivering gentle, modern clinical care.',
+        '[]'::jsonb, 99, true
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        is_active = true;
+      `,
+      [userId, fullName.trim()]
+    );
+  }
+
   const inviteUrl = `${origin}/auth/sign-up?token=${token}&type=invite&email=${encodeURIComponent(
     cleanEmail
   )}`;
@@ -1034,7 +1055,7 @@ export async function ensureDentistsTable(): Promise<void> {
   if (countRes.rows[0]?.count === 0) {
     const initialDentists = [
       {
-        id: "00000000-0000-0000-0000-000000000010",
+        id: "3cb85fbe-8060-4347-915a-1d400aa160ca",
         name: "Dr. Kenneth Galve, DDM, FICOI",
         title: "Lead Dental Surgeon & Cosmetic Dentistry Specialist",
         prc_license: "0074218",
@@ -1070,7 +1091,7 @@ export async function ensureDentistsTable(): Promise<void> {
         experience_years: 11,
         bio: "Dr. Reyes has straightened over 1,500 smiles across Mindanao. Her philosophy centers on gentle, non-extraction orthodontic planning whenever possible, harmonizing facial aesthetics with long-term bite stability.",
         clinic_days: [
-          { branchName: "Downtown (Limketkai)", days: "Tue, Thu, Sat", hours: "9:00 AM – 6:00 PM" },
+          { branchName: "Downtown (Limketkai)", days: "Tue, Thu, Sat", hours: "9:00 AM – 5:00 PM" },
         ],
         display_order: 2,
       },
@@ -1110,8 +1131,8 @@ export async function ensureDentistsTable(): Promise<void> {
         experience_years: 8,
         bio: "Celebrated for her remarkably gentle touch, Dr. Valdez is the favorite doctor of anxious patients and young children in CDO. She specializes in single-visit root canal therapy and preventive oral health.",
         clinic_days: [
-          { branchName: "Downtown (Limketkai)", days: "Mon, Wed, Sat", hours: "9:00 AM – 6:00 PM" },
-          { branchName: "Uptown (Pueblo de Oro)", days: "Tue, Thu, Fri", hours: "9:00 AM – 6:00 PM" },
+          { branchName: "Downtown (Limketkai)", days: "Daily", hours: "9:00 AM – 5:00 PM" },
+          { branchName: "Centrio (Ayala Mall)", days: "Tue, Thu, Sat", hours: "10:00 AM – 8:00 PM" },
         ],
         display_order: 4,
       },
@@ -1141,6 +1162,43 @@ export async function ensureDentistsTable(): Promise<void> {
       );
     }
   }
+
+  // Bidirectional Synchronization:
+  // 1. Ensure all rows in public.dentists exist in public.profiles (to satisfy foreign keys on appointments/treatments)
+  await db.query(`
+    INSERT INTO public.profiles (id, full_name, role, is_active, created_at)
+    SELECT d.id::uuid, d.name, 'dentist'::public.user_role, d.is_active, now()
+    FROM public.dentists d
+    ON CONFLICT (id) DO UPDATE SET
+      full_name = EXCLUDED.full_name,
+      role = 'dentist'::public.user_role,
+      is_active = EXCLUDED.is_active;
+  `);
+
+  // 2. Ensure all active dentist profiles exist in public.dentists (so invited dentists appear in public booking & catalog)
+  await db.query(`
+    INSERT INTO public.dentists (
+      id, name, title, prc_license, photo_url, specialty, education, certifications,
+      experience_years, bio, clinic_days, display_order, is_active
+    )
+    SELECT 
+      p.id::text,
+      p.full_name,
+      'Attending Dental Specialist',
+      'PRC Verified',
+      '/images/dentist-dr-kenneth.jpg',
+      'General Dental Medicine & Patient Care',
+      'Doctor of Dental Medicine',
+      '[]'::jsonb,
+      5,
+      'Dedicated dental specialist at CDG Dental Clinic delivering gentle, modern clinical care.',
+      '[]'::jsonb,
+      99,
+      p.is_active
+    FROM public.profiles p
+    WHERE p.role = 'dentist'
+    ON CONFLICT (id) DO NOTHING;
+  `);
 }
 
 /**
@@ -1199,7 +1257,19 @@ export async function createDentistAdmin(data: {
   const db = getPool();
 
   const id = crypto.randomUUID();
+  const isActive = data.is_active !== undefined ? data.is_active : true;
 
+  // 1. Ensure dentist profile exists in public.profiles first so foreign keys never fail
+  await db.query(`
+    INSERT INTO public.profiles (id, full_name, role, is_active, created_at)
+    VALUES ($1::uuid, $2, 'dentist'::public.user_role, $3, now())
+    ON CONFLICT (id) DO UPDATE SET
+      full_name = EXCLUDED.full_name,
+      role = 'dentist'::public.user_role,
+      is_active = EXCLUDED.is_active;
+  `, [id, data.name.trim(), isActive]);
+
+  // 2. Insert into public.dentists
   const query = `
     INSERT INTO public.dentists (
       id, name, title, prc_license, photo_url, specialty, education,
@@ -1221,7 +1291,7 @@ export async function createDentistAdmin(data: {
     data.bio?.trim() || null,
     JSON.stringify(data.clinic_days || []),
     data.display_order !== undefined ? data.display_order : 0,
-    data.is_active !== undefined ? data.is_active : true,
+    isActive,
   ]);
 
   const created = rows[0];
@@ -1327,6 +1397,20 @@ export async function updateDentistAdmin(
     throw new Error("Dentist record not found.");
   }
 
+  // Synchronize name and active status to public.profiles
+  if (data.name !== undefined || data.is_active !== undefined) {
+    await db.query(`
+      UPDATE public.profiles
+      SET full_name = COALESCE($1, full_name),
+          is_active = COALESCE($2, is_active)
+      WHERE id = $3::uuid;
+    `, [
+      data.name !== undefined ? data.name.trim() : null,
+      data.is_active !== undefined ? Boolean(data.is_active) : null,
+      id,
+    ]);
+  }
+
   const updated = rows[0];
   return {
     ...updated,
@@ -1336,13 +1420,32 @@ export async function updateDentistAdmin(
 }
 
 /**
- * Delete a dentist record
+ * Delete a dentist record (with foreign-key protection)
  */
 export async function deleteDentistAdmin(id: string): Promise<void> {
   await ensureDentistsTable();
   const db = getPool();
 
+  // Check if appointments or treatments exist referencing this dentist
+  const { rows: apptCheck } = await db.query(
+    "SELECT id FROM public.appointments WHERE dentist_id = $1::uuid LIMIT 1;",
+    [id]
+  );
+  const { rows: treatCheck } = await db.query(
+    "SELECT id FROM public.treatments WHERE dentist_id = $1::uuid LIMIT 1;",
+    [id]
+  );
+
+  if (apptCheck.length > 0 || treatCheck.length > 0) {
+    // Soft delete to protect relational data integrity and foreign keys
+    await db.query("UPDATE public.dentists SET is_active = false, updated_at = now() WHERE id = $1;", [id]);
+    await db.query("UPDATE public.profiles SET is_active = false WHERE id = $1::uuid;", [id]);
+    return;
+  }
+
   const res = await db.query("DELETE FROM public.dentists WHERE id = $1 RETURNING id;", [id]);
+  await db.query("DELETE FROM public.profiles WHERE id = $1::uuid;", [id]);
+
   if (res.rows.length === 0) {
     throw new Error("Dentist record not found.");
   }
