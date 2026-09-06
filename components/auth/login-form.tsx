@@ -280,7 +280,7 @@ export function LoginForm() {
             <button
               type="button"
               onClick={() => {
-                setEmail("dentist@cdgdental.com");
+                setEmail("dr.valdez@cdgdental.ph");
                 setPassword("dentist123");
               }}
               className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-100 text-center hover:bg-emerald-100/70 active:scale-[0.98] transition-all cursor-pointer group"

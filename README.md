@@ -79,7 +79,7 @@ For demonstration and client walkthroughs, access the portal via `/auth/login` (
 | Role | Email | Password | Landing Destination | Primary Workstation |
 | :--- | :--- | :--- | :--- | :--- |
 | **Secretary** | `secretary@cdgdental.com` | `secretary123` | `/secretary` | Reception, Queue & Cashier POS |
-| **Dentist** | `dentist@cdgdental.com` | `dentist123` | `/portal` | Clinical Charting & Time-Travel Attendance |
+| **Dentist** | `dr.valdez@cdgdental.ph` | `dentist123` | `/portal` | Clinical Charting & Time-Travel Attendance |
 | **Admin** | `admin@gmail.com` | `admin123` | `/admin/users` | Master Fee Schedule, Audit Trail & Staff Access |
 
 ---
