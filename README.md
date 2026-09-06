@@ -1,6 +1,6 @@
 # CDG Dental Clinic — Practice Management System (PMS)
 
-An enterprise-grade Dental Practice Management System and Electronic Dental Records (EDR) suite built for multi-branch clinics. Features real-time chairside odontograms, dynamic dentist duty scheduling, front-desk reception workflows, conflict-free appointment scheduling, integrated POS invoicing, and high-volume clinical analytics.
+An enterprise-grade Dental Practice Management System and Electronic Dental Records (EDR) suite built for multi-branch clinics. Features real-time chairside odontograms, dynamic dentist duty scheduling, front-desk reception workflows, conflict-free appointment scheduling, integrated POS invoicing, statutory tax compliance, master fee schedules, and high-volume clinical analytics.
 
 ---
 
@@ -15,22 +15,33 @@ An enterprise-grade Dental Practice Management System and Electronic Dental Reco
 
 ### 2. 🩺 Clinical Doctor Suite (`/portal`)
 - **Chairside 32-Tooth Odontogram**: Interactive adult dental charting with color-coded tooth statuses (healthy, decayed, filled, crowned, extracted, implant, root canal, bridge) and surface-specific clinical notes.
-- **Operatory Queue Management**: Real-time operatory queue with one-click status transitions (*Scheduled* → *Arrived* → *In Operatory* → *Completed*).
+- **Time-Travel Patient Attendance Engine**: Instantly answers *"Who were my patients today? Yesterday? This week? Previous week/s? Previous months?"* with 1-click period presets (*Today*, *Yesterday*, *This Week*, *Last Week*, *This Month*, *Last Month*, *Custom Range*, *All Records*).
+- **Dual View Modes**:
+  - **Queue Timeline View**: Sequential chairside queue with 1-click status transitions (*Scheduled* → *Arrived* → *In Operatory* → *Completed*), automatically sorting latest visits first for past dates.
+  - **Patient Roster View**: Distinct patient directory showing computed age, total visit counts in the selected period, doctor notes, medical alerts, and 1-click navigation to their full tooth chart.
+- **Chairside Catalog Autocomplete**: 1-click procedure selection from the Master Fee Schedule with automatic cost calculation and immediate invoice bundling.
 - **Electronic Dental Records (EDR)**: Patient medical contraindications, penicillin/latex allergies, emergency contacts, and complete chronological treatment history.
 
 ### 3. 📋 Front-Desk & Secretary Hub (`/secretary`)
 A unified command center for clinic receptionists and secretaries organized into 4 dedicated workstations:
 - 🕒 **Queue & Check-In**: Real-time lobby queue, walk-in scheduling, patient routing slip vouchers, and doctor filtering.
-- 👥 **Patient Records & CRM**: Fast patient search, instant profile preview, intake registration, and duplicate record merging.
-- 💳 **Cashier POS & Invoicing**: Treatment bill creation, cash/GCash/card payment logging, official receipt generation, and live receivables tracking.
+- 👥 **Patient Records & CRM**: Fast patient search, instant profile preview, intake registration, inline personal info editing, duplicate record merging, and batch legacy paper record transcription.
+- 💳 **Cashier POS & Invoicing**: Treatment bill creation, cash/GCash/card payment logging, official receipt generation, installment packages, and live receivables tracking.
 - 📁 **Intake Documents Vault**: Secure document intake for patient consent forms, signed waivers, ID attachments, and medical clearances.
 
-### 4. 📅 Scheduling & Conflict-Free Appointments (`/appointments`)
+### 4. 🇵🇭 Statutory Tax Compliance & Standard Discounts
+Strict adherence to Philippine healthcare tax exemptions and statutory discount policies:
+- **1-Click Quick Statutory Buttons**: Senior Citizen 20% (RA 9994), PWD 20% (RA 10754), Courtesy/Family 10%, and Promotional Special.
+- **Mandatory Tax Compliance Validation**: Front-desk cashier invoices strictly require recording the official **OSCA Senior Citizen ID Number** or **PWD ID Number** before discount approval.
+- **Automatic Cardholder Population**: Cardholder full name is automatically extracted from patient records with manual representative override support.
+- **Official BIR-Compliant Receipts**: Printed official acknowledgment receipts prominently feature the statutory act citation, registered ID number, cardholder name, and a "BIR Tax Exemption Verified" badge.
+
+### 5. 📅 Scheduling & Conflict-Free Appointments (`/appointments`)
 - **Dynamic Duty Roster Matching**: When booking appointments, dentists are evaluated in real time against their rostered branch and day of week.
 - **On-Duty Prioritization**: On-duty practitioners are automatically sorted to the top with `● On Duty (Hours)` indicators, while off-duty doctors display `○ Off Duty` with notice cards (permitting administrative override when authorized).
 - **Conflict Prevention**: Double-booking prevention via PostgreSQL exclusion constraints and live slot availability checks.
 
-### 5. 📊 Reports & Financial Analytics (`/reports`)
+### 6. 📊 Reports & Financial Analytics (`/reports`)
 A comprehensive business intelligence dashboard for practice owners and clinic administrators:
 - 📈 **Executive Revenue KPIs**: Gross Revenue, Collected Payments, Outstanding Receivables, and Collection Rate percentage with period comparison indicators.
 - 🗓️ **Flexible Date Range Filtering**: Preset filters (*Today*, *Last 7 Days*, *Last 30 Days*, *This Month*, *Year-to-Date*, *All-Time*) plus custom start/end date ranges.
@@ -39,7 +50,9 @@ A comprehensive business intelligence dashboard for practice owners and clinic a
 - 🦷 **Top Dental Procedures**: Volume and revenue ranking for cleanings, restorations, root canals, crowns, tooth extractions, and orthodontics.
 - 📑 **Accounts Receivable & Aging Ledger**: Patient-level ledger showing invoice balances, payment dates, and 1-click printable PDF receipts.
 
-### 6. 🛡️ Master Administration (`/admin`)
+### 7. 🛡️ Master Administration (`/admin`)
+- **Master Fee Schedule & Treatment Catalog** (`/admin/services`): Centralized clinical procedure catalog across 7 dental specialties with standard base fees, duration, min/max fee ranges, active status toggles, and online booking visibility.
+- **Immutable Audit Trail & Activity Log** (`/admin/audit`): Chronological regulatory compliance ledger tracking billing discounts, appointments, patient merges, fee alterations, and access control changes with multi-factor filtering, payload inspector modal, and 1-click CSV export.
 - **Staff Directory & Access Control** (`/admin/users`): Administrator invite engine, role management (`dentist`, `secretary`, `admin`), active sessions, and security oversight.
 - **Branch & Facility Directory** (`/admin/branches`): Multi-clinic location registration, contact directories, and active status toggles.
 - **Dental Hours & Shift Schedules** (`/admin/hours`): Manage branch opening/closing hours, midday lunch breaks, slot duration intervals (30m to 120m), and operating days with live slot previews.
@@ -51,7 +64,8 @@ A comprehensive business intelligence dashboard for practice owners and clinic a
 ## ⚡ High-Volume Scalability & Architecture
 
 - **Dynamic Duty Engine (`lib/duty-schedule.ts`)**: Pure-function schedule parser and evaluation engine supporting fuzzy branch matching, schedule intervals, and next-open-date algorithms.
-- **Zero Infinite Scroll**: All tabular views (Patients, Appointments, Invoices, Payment Logs, Documents, Reports) feature clean pagination with page jumping, configurable rows-per-page (`10`, `25`, `50`, `100`), and live record totals.
+- **Zero Infinite Scroll**: All tabular views (Patients, Appointments, Invoices, Payment Logs, Documents, Reports, Audit Trail) feature clean pagination with page jumping, configurable rows-per-page (`10`, `25`, `50`, `100`), and live record totals.
+- **Resilient Dual-Tier Data Storage**: Core services and audit logs utilize direct Supabase queries with seamless, zero-downtime local JSON storage fallback (`data/`).
 - **PostgreSQL Double-Booking Exclusion**: Database-level `EXCLUDE USING gist` constraints on `(dentist_id WITH =, tstzrange(start_time, end_time) WITH &&)` prevent concurrent appointment double-booking.
 - **Trigger-Synced Financial Ledger**: Database triggers (`trg_payment_sync_bill`) automatically recalculate invoice balances (`unpaid`, `partially_paid`, `fully_paid`) upon payment logging.
 - **Optimized B-Tree Indexes**: Custom composite indexes on `patients(created_at, last_name)`, `appointments(branch_id, start_time)`, and `treatment_bills(created_at, patient_id)` ensure sub-millisecond queries across tens of thousands of records.
@@ -65,8 +79,8 @@ For demonstration and client walkthroughs, access the portal via `/auth/login` (
 | Role | Email | Password | Landing Destination | Primary Workstation |
 | :--- | :--- | :--- | :--- | :--- |
 | **Secretary** | `secretary@cdgdental.com` | `secretary123` | `/secretary` | Reception, Queue & Cashier POS |
-| **Dentist** | `dentist@cdgdental.com` | `dentist123` | `/portal` | Clinical Charting & Odontograms |
-| **Admin** | `admin@gmail.com` | `admin123` | `/admin/users` | Full Clinic Operations & Access Control |
+| **Dentist** | `dentist@cdgdental.com` | `dentist123` | `/portal` | Clinical Charting & Time-Travel Attendance |
+| **Admin** | `admin@gmail.com` | `admin123` | `/admin/users` | Master Fee Schedule, Audit Trail & Staff Access |
 
 ---
 
@@ -119,6 +133,8 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000) in your browser:
 - Public Website: `http://localhost:3000/`
 - Practitioner & Staff Sign In: `http://localhost:3000/auth/login`
+- Master Fee Schedule: `http://localhost:3000/admin/services`
+- Audit Trail & Activity Log: `http://localhost:3000/admin/audit`
 - Analytics & Financial Reports: `http://localhost:3000/reports`
 
 ---
