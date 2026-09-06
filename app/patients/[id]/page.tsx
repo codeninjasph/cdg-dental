@@ -18,6 +18,7 @@ import { MedicalAlertBanner } from "@/components/patients/medical-alert-banner";
 import { AddTreatmentModal } from "@/components/patients/add-treatment-modal";
 import { PaymentModal } from "@/components/billing/payment-modal";
 import { AppointmentModal } from "@/components/appointments/appointment-modal";
+import { EditPatientModal } from "@/components/patients/edit-patient-modal";
 import {
   ArrowLeft,
   Calendar,
@@ -33,6 +34,7 @@ import {
   ShieldAlert,
   Image as ImageIcon,
   CheckCircle2,
+  Pencil,
 } from "lucide-react";
 
 import { Suspense } from "react";
@@ -54,6 +56,7 @@ function PatientDetailPageContent() {
   // Modals
   const [isTreatmentModalOpen, setIsTreatmentModalOpen] = useState(false);
   const [isApptModalOpen, setIsApptModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [paymentBill, setPaymentBill] = useState<any | null>(null);
 
   const supabase = createClient();
@@ -188,7 +191,15 @@ function PatientDetailPageContent() {
           <span>Back to Patients Directory</span>
         </Link>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+          <button
+            onClick={() => setIsEditModalOpen(true)}
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2.5 sm:py-2 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-200 text-xs font-semibold transition-all shadow-xs min-h-[40px] cursor-pointer"
+            title="Update patient contact, demographics, or medical alerts"
+          >
+            <Pencil className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span>Edit Patient Info</span>
+          </button>
           <button
             onClick={() => setIsApptModalOpen(true)}
             className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2.5 sm:py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-xs min-h-[40px] cursor-pointer"
@@ -567,6 +578,16 @@ function PatientDetailPageContent() {
         onClose={() => setPaymentBill(null)}
         onSuccess={triggerRefresh}
         bill={paymentBill}
+      />
+
+      <EditPatientModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        patient={patient}
+        onSuccess={(updated) => {
+          setPatient(updated);
+          setIsEditModalOpen(false);
+        }}
       />
     </div>
   );

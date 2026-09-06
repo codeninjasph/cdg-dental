@@ -32,6 +32,11 @@ import {
   FileText,
   UserCheck,
   RefreshCw,
+  CalendarRange,
+  History,
+  Eye,
+  Layers,
+  UserX,
 } from "lucide-react";
 
 // Helper: format YYYY-MM-DD from local date
@@ -41,6 +46,30 @@ function getLocalDateString(d: Date = new Date()): string {
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
+
+// Helper: calculate patient age from DOB
+function calculateAge(dob?: string | null): string {
+  if (!dob) return "";
+  const birthDate = new Date(dob);
+  if (isNaN(birthDate.getTime())) return "";
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return `${age}y`;
+}
+
+export type PortalDateFilter =
+  | "today"
+  | "yesterday"
+  | "this_week"
+  | "last_week"
+  | "this_month"
+  | "last_month"
+  | "custom"
+  | "all";
 
 export default function DashboardPage() {
   const {
@@ -57,8 +86,10 @@ export default function DashboardPage() {
 
   // Scoping & Filter States
   const [selectedDentistId, setSelectedDentistId] = useState<string>("all");
-  const [dateFilter, setDateFilter] = useState<"today" | "tomorrow" | "week" | "all" | "custom">("today");
-  const [customDate, setCustomDate] = useState<string>(getLocalDateString());
+  const [dateFilter, setDateFilter] = useState<PortalDateFilter>("today");
+  const [customStartDate, setCustomStartDate] = useState<string>(getLocalDateString());
+  const [customEndDate, setCustomEndDate] = useState<string>(getLocalDateString());
+  const [viewMode, setViewMode] = useState<"queue" | "roster">("queue");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
@@ -74,6 +105,8 @@ export default function DashboardPage() {
   // Pagination States
   const [apptsPage, setApptsPage] = useState(1);
   const apptsPageSize = 8;
+  const [rosterPage, setRosterPage] = useState(1);
+  const rosterPageSize = 8;
   const [balancesPage, setBalancesPage] = useState(1);
   const balancesPageSize = 5;
 
@@ -241,26 +274,111 @@ export default function DashboardPage() {
     }
   };
 
-  // Date Filtering Logic
-  const todayStr = getLocalDateString();
-  const tomorrowObj = new Date();
-  tomorrowObj.setDate(tomorrowObj.getDate() + 1);
-  const tomorrowStr = getLocalDateString(tomorrowObj);
+  // Date Filtering & Period Boundaries Calculation
+  const dateRanges = useMemo(() => {
+    const now = new Date();
+    const todayStr = getLocalDateString(now);
 
-  const weekEndObj = new Date();
-  weekEndObj.setDate(weekEndObj.getDate() + 7);
-  const weekEndStr = getLocalDateString(weekEndObj);
+    const yesterdayObj = new Date(now);
+    yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+    const yesterdayStr = getLocalDateString(yesterdayObj);
+
+    // Monday of current week (ISO week: Monday = 1, Sunday = 7)
+    const day = now.getDay(); // 0 is Sun, 1 is Mon...
+    const diffToMon = (day + 6) % 7;
+    const monThisWeek = new Date(now);
+    monThisWeek.setDate(now.getDate() - diffToMon);
+    const sunThisWeek = new Date(monThisWeek);
+    sunThisWeek.setDate(monThisWeek.getDate() + 6);
+
+    const thisWeekStart = getLocalDateString(monThisWeek);
+    const thisWeekEnd = getLocalDateString(sunThisWeek);
+
+    // Last week (previous Monday to Sunday)
+    const monLastWeek = new Date(monThisWeek);
+    monLastWeek.setDate(monThisWeek.getDate() - 7);
+    const sunLastWeek = new Date(sunThisWeek);
+    sunLastWeek.setDate(sunThisWeek.getDate() - 7);
+
+    const lastWeekStart = getLocalDateString(monLastWeek);
+    const lastWeekEnd = getLocalDateString(sunLastWeek);
+
+    // This month
+    const thisMonthStartObj = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thisMonthEndObj = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const thisMonthStart = getLocalDateString(thisMonthStartObj);
+    const thisMonthEnd = getLocalDateString(thisMonthEndObj);
+
+    // Last month
+    const lastMonthStartObj = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEndObj = new Date(now.getFullYear(), now.getMonth(), 0);
+    const lastMonthStart = getLocalDateString(lastMonthStartObj);
+    const lastMonthEnd = getLocalDateString(lastMonthEndObj);
+
+    return {
+      todayStr,
+      yesterdayStr,
+      thisWeekStart,
+      thisWeekEnd,
+      lastWeekStart,
+      lastWeekEnd,
+      thisMonthStart,
+      thisMonthEnd,
+      lastMonthStart,
+      lastMonthEnd,
+    };
+  }, []);
+
+  const todayStr = dateRanges.todayStr;
+
+  // Active Human-Readable Period Label
+  const periodLabel = useMemo(() => {
+    switch (dateFilter) {
+      case "today":
+        return `Today (${new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })})`;
+      case "yesterday": {
+        const y = new Date();
+        y.setDate(y.getDate() - 1);
+        return `Yesterday (${y.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })})`;
+      }
+      case "this_week":
+        return `This Week (${new Date(dateRanges.thisWeekStart + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(dateRanges.thisWeekEnd + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })})`;
+      case "last_week":
+        return `Last Week (${new Date(dateRanges.lastWeekStart + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(dateRanges.lastWeekEnd + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })})`;
+      case "this_month":
+        return `This Month (${new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })})`;
+      case "last_month": {
+        const prevM = new Date();
+        prevM.setMonth(prevM.getMonth() - 1);
+        return `Last Month (${prevM.toLocaleDateString("en-US", { month: "long", year: "numeric" })})`;
+      }
+      case "custom":
+        return `Custom Range: ${customStartDate} to ${customEndDate}`;
+      case "all":
+        return "All Recorded Appointments";
+      default:
+        return "Selected Period";
+    }
+  }, [dateFilter, dateRanges, customStartDate, customEndDate]);
 
   // Filtered Appointments based on Date, Status, and Search Query
   const filteredAppointments = useMemo(() => {
-    return appointments.filter((appt) => {
+    const isHistorical = ["yesterday", "last_week", "this_month", "last_month", "all"].includes(dateFilter);
+
+    const matches = appointments.filter((appt) => {
       const apptDate = appt.start_time ? appt.start_time.split("T")[0] : "";
 
       // 1. Date Filter
-      if (dateFilter === "today" && apptDate !== todayStr) return false;
-      if (dateFilter === "tomorrow" && apptDate !== tomorrowStr) return false;
-      if (dateFilter === "week" && (apptDate < todayStr || apptDate > weekEndStr)) return false;
-      if (dateFilter === "custom" && apptDate !== customDate) return false;
+      if (dateFilter === "today" && apptDate !== dateRanges.todayStr) return false;
+      if (dateFilter === "yesterday" && apptDate !== dateRanges.yesterdayStr) return false;
+      if (dateFilter === "this_week" && (apptDate < dateRanges.thisWeekStart || apptDate > dateRanges.thisWeekEnd)) return false;
+      if (dateFilter === "last_week" && (apptDate < dateRanges.lastWeekStart || apptDate > dateRanges.lastWeekEnd)) return false;
+      if (dateFilter === "this_month" && (apptDate < dateRanges.thisMonthStart || apptDate > dateRanges.thisMonthEnd)) return false;
+      if (dateFilter === "last_month" && (apptDate < dateRanges.lastMonthStart || apptDate > dateRanges.lastMonthEnd)) return false;
+      if (dateFilter === "custom") {
+        if (customStartDate && apptDate < customStartDate) return false;
+        if (customEndDate && apptDate > customEndDate) return false;
+      }
 
       // 2. Status Filter
       if (statusFilter !== "all" && appt.status !== statusFilter) return false;
@@ -279,17 +397,105 @@ export default function DashboardPage() {
 
       return true;
     });
-  }, [appointments, dateFilter, customDate, statusFilter, searchQuery, todayStr, tomorrowStr, weekEndStr]);
+
+    // Sort: Historical periods descending (most recent visit first). "Today" ascending (upcoming first).
+    return [...matches].sort((a, b) => {
+      const timeA = new Date(a.start_time).getTime();
+      const timeB = new Date(b.start_time).getTime();
+      if (isHistorical) {
+        return timeB - timeA;
+      }
+      return timeA - timeB;
+    });
+  }, [appointments, dateFilter, customStartDate, customEndDate, statusFilter, searchQuery, dateRanges]);
+
+  // Aggregate Attendance Statistics & Unique Patients Roster for the selected period
+  const periodStats = useMemo(() => {
+    const patientMap = new Map<
+      string,
+      {
+        patient: any;
+        visits: any[];
+        latestAppointment: any;
+        completedCount: number;
+      }
+    >();
+
+    let completedCount = 0;
+    let inTreatmentCount = 0;
+    let waitingCount = 0;
+    let scheduledCount = 0;
+    let cancelledCount = 0;
+
+    filteredAppointments.forEach((appt) => {
+      const pid = appt.patient?.id || appt.patient_id || "unknown";
+      if (!patientMap.has(pid)) {
+        patientMap.set(pid, {
+          patient: appt.patient,
+          visits: [],
+          latestAppointment: appt,
+          completedCount: 0,
+        });
+      }
+
+      const entry = patientMap.get(pid)!;
+      entry.visits.push(appt);
+
+      // Check if this appointment is newer than current latest
+      if (new Date(appt.start_time) > new Date(entry.latestAppointment.start_time)) {
+        entry.latestAppointment = appt;
+      }
+
+      if (appt.status === "completed") {
+        entry.completedCount++;
+        completedCount++;
+      } else if (appt.status === "in_treatment") {
+        inTreatmentCount++;
+      } else if (appt.status === "arrived") {
+        waitingCount++;
+      } else if (appt.status === "scheduled" || appt.status === "confirmed") {
+        scheduledCount++;
+      } else if (appt.status === "cancelled") {
+        cancelledCount++;
+      }
+    });
+
+    // Sort patient roster by latest visit descending
+    const rosterList = Array.from(patientMap.values()).sort((a, b) => {
+      return (
+        new Date(b.latestAppointment.start_time).getTime() -
+        new Date(a.latestAppointment.start_time).getTime()
+      );
+    });
+
+    return {
+      uniquePatientsCount: patientMap.size,
+      totalVisits: filteredAppointments.length,
+      completedCount,
+      inTreatmentCount,
+      waitingCount,
+      scheduledCount,
+      cancelledCount,
+      rosterList,
+    };
+  }, [filteredAppointments]);
 
   // Reset pagination when filter changes
   useEffect(() => {
     setApptsPage(1);
-  }, [dateFilter, statusFilter, searchQuery, selectedDentistId]);
+    setRosterPage(1);
+  }, [dateFilter, customStartDate, customEndDate, statusFilter, searchQuery, selectedDentistId]);
 
-  // Paginated Appointments
+  // Paginated Appointments (Queue View)
   const paginatedAppts = filteredAppointments.slice(
     (apptsPage - 1) * apptsPageSize,
     apptsPage * apptsPageSize
+  );
+
+  // Paginated Patients (Roster View)
+  const paginatedRoster = periodStats.rosterList.slice(
+    (rosterPage - 1) * rosterPageSize,
+    rosterPage * rosterPageSize
   );
 
   // Paginated Balances
@@ -674,328 +880,567 @@ export default function DashboardPage() {
         {/* LEFT 2 COLUMNS: DYNAMIC APPOINTMENTS & PATIENT QUEUE */}
         <div className="lg:col-span-2 space-y-4">
           {/* Section Header with Date & Status Filter Controls */}
-          <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="space-y-3.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <span>Patient Schedule & Operatory Queue</span>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                    {filteredAppointments.length}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <History className="w-5 h-5 text-teal-600 dark:text-teal-400 shrink-0" />
+                    <span>Patient Schedule & Attendance History</span>
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 shadow-2xs">
+                    {filteredAppointments.length} visits • {periodStats.uniquePatientsCount} {periodStats.uniquePatientsCount === 1 ? "patient" : "patients"}
                   </span>
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Live queue progression: Scheduled → Arrived (Waiting) → In Treatment → Completed
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-teal-500 shrink-0" />
+                  <span className="font-semibold text-teal-700 dark:text-teal-300">{periodLabel}</span>
                 </p>
               </div>
 
-              <Link
-                href="/appointments"
-                className="text-xs font-semibold text-teal-600 hover:text-teal-700 dark:text-teal-400 flex items-center gap-1 self-start sm:self-center"
-              >
-                Full Calendar <ChevronRight className="w-4 h-4" />
-              </Link>
+              {/* View Mode Switcher (Queue vs Roster) + Calendar Link */}
+              <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
+                <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold border border-slate-200/60 dark:border-slate-700/60">
+                  <button
+                    onClick={() => setViewMode("queue")}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                      viewMode === "queue"
+                        ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-2xs font-extrabold"
+                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Queue Timeline</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode("roster")}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                      viewMode === "roster"
+                        ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-2xs font-extrabold"
+                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Patient Roster</span>
+                  </button>
+                </div>
+
+                <Link
+                  href="/appointments"
+                  className="text-xs font-semibold text-teal-600 hover:text-teal-700 dark:text-teal-400 flex items-center gap-0.5 px-2.5 py-1.5 rounded-xl hover:bg-teal-50 dark:hover:bg-teal-950/40 transition-colors"
+                >
+                  Full Calendar <ChevronRight className="w-4 h-4" />
+                </Link>
+              </div>
             </div>
 
-            {/* Filter Toolbar: Date Tabs + Custom Date + Search */}
-            <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
-              {/* Date Filter Tabs */}
-              <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold">
-                <button
-                  onClick={() => setDateFilter("today")}
-                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                    dateFilter === "today"
-                      ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs"
-                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                  }`}
-                >
-                  Today
-                </button>
-                <button
-                  onClick={() => setDateFilter("tomorrow")}
-                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                    dateFilter === "tomorrow"
-                      ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs"
-                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                  }`}
-                >
-                  Tomorrow
-                </button>
-                <button
-                  onClick={() => setDateFilter("week")}
-                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                    dateFilter === "week"
-                      ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs"
-                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                  }`}
-                >
-                  Next 7 Days
-                </button>
-                <button
-                  onClick={() => setDateFilter("all")}
-                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                    dateFilter === "all"
-                      ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs"
-                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                  }`}
-                >
-                  All Dates
-                </button>
+            {/* Comprehensive Period Filter Toolbar (Answering: Today, Yesterday, This Week, Last Week, This Month, Last Month) */}
+            <div className="flex flex-col gap-2.5 pt-1">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+                {[
+                  { key: "today" as const, label: "Today" },
+                  { key: "yesterday" as const, label: "Yesterday" },
+                  { key: "this_week" as const, label: "This Week" },
+                  { key: "last_week" as const, label: "Last Week" },
+                  { key: "this_month" as const, label: "This Month" },
+                  { key: "last_month" as const, label: "Last Month" },
+                  { key: "custom" as const, label: "Custom Range" },
+                  { key: "all" as const, label: "All Records" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setDateFilter(tab.key)}
+                    className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 border ${
+                      dateFilter === tab.key
+                        ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white shadow-xs"
+                        : "bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400 border-transparent hover:bg-slate-200 dark:hover:bg-slate-700"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
-              {/* Search & Custom Date */}
-              <div className="flex items-center gap-2 flex-1 sm:flex-initial">
-                <div className="relative flex-1 sm:w-48">
+              {/* Custom Date Range Picker Strip (shown if Custom selected) */}
+              {dateFilter === "custom" && (
+                <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-900 text-xs animate-in fade-in">
+                  <CalendarRange className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                  <span className="font-bold text-slate-700 dark:text-slate-300">Date Range:</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <label className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+                      From:
+                      <input
+                        type="date"
+                        value={customStartDate}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        aria-label="Filter schedule starting from date"
+                        className="px-2.5 py-1 text-xs rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
+                      />
+                    </label>
+                    <label className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+                      To:
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        aria-label="Filter schedule ending at date"
+                        className="px-2.5 py-1 text-xs rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Search & Status Filters */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
+                <div className="relative flex-1 sm:w-64 min-w-[200px]">
                   <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search queue..."
+                    placeholder="Search by patient, phone, notes..."
                     className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-1 focus:ring-teal-500"
                   />
                 </div>
 
-                <input
-                  type="date"
-                  value={customDate}
-                  onChange={(e) => {
-                    setCustomDate(e.target.value);
-                    setDateFilter("custom");
-                  }}
-                  aria-label="Filter schedule by specific date"
-                  className="px-2.5 py-1.5 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
-                />
+                {/* Status Filter Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                  {[
+                    { key: "all", label: "All Visits" },
+                    { key: "arrived", label: "Waiting / Lobby" },
+                    { key: "in_treatment", label: "In Operatory" },
+                    { key: "scheduled", label: "Scheduled" },
+                    { key: "completed", label: "Completed" },
+                    { key: "cancelled", label: "Cancelled" },
+                  ].map((pill) => (
+                    <button
+                      key={pill.key}
+                      onClick={() => setStatusFilter(pill.key)}
+                      className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer shrink-0 ${
+                        statusFilter === pill.key
+                          ? "bg-teal-600 text-white font-bold shadow-2xs"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                      }`}
+                    >
+                      {pill.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Status Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-              {[
-                { key: "all", label: "All Visits" },
-                { key: "arrived", label: "Waiting / Arrived" },
-                { key: "in_treatment", label: "In Operatory" },
-                { key: "scheduled", label: "Scheduled" },
-                { key: "completed", label: "Completed" },
-              ].map((pill) => (
-                <button
-                  key={pill.key}
-                  onClick={() => setStatusFilter(pill.key)}
-                  className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer shrink-0 ${
-                    statusFilter === pill.key
-                      ? "bg-teal-600 text-white font-bold"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
-                  }`}
-                >
-                  {pill.label}
-                </button>
-              ))}
+            {/* Attendance Period Summary Strip (Answers Dentist's questions at a glance) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 rounded-2xl bg-gradient-to-r from-teal-50/50 via-slate-50 to-indigo-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-slate-850 border border-slate-200/70 dark:border-slate-800 text-xs">
+              <div className="flex items-center gap-2.5 p-1.5">
+                <div className="w-8 h-8 rounded-xl bg-teal-500/10 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Unique Patients</div>
+                  <div className="font-mono font-black text-slate-900 dark:text-slate-100 text-sm">
+                    {periodStats.uniquePatientsCount}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 p-1.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-700 dark:text-blue-300 flex items-center justify-center shrink-0">
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Visits</div>
+                  <div className="font-mono font-black text-slate-900 dark:text-slate-100 text-sm">
+                    {periodStats.totalVisits}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 p-1.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Completed</div>
+                  <div className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm">
+                    {periodStats.completedCount}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 p-1.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                  <Activity className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">In Chair / Lobby</div>
+                  <div className="font-mono font-black text-amber-600 dark:text-amber-400 text-sm">
+                    {periodStats.inTreatmentCount + periodStats.waitingCount}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Queue List Table/Cards */}
+          {/* LIST CONTAINER: Switchable between Queue View and Patient Roster View */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs divide-y divide-slate-100 dark:divide-slate-800/80 overflow-hidden">
             {isLoading ? (
               <div className="p-12 text-center text-slate-400 text-sm flex items-center justify-center gap-2">
                 <RefreshCw className="w-4 h-4 animate-spin" />
                 <span>Loading clinical schedule...</span>
               </div>
-            ) : filteredAppointments.length === 0 ? (
-              <div className="p-10 text-center space-y-2">
-                <p className="text-slate-500 dark:text-slate-400 text-sm">
-                  No appointments found for the selected date and filters.
-                </p>
-                <button
-                  onClick={() => setIsApptModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-600 hover:text-teal-700 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Book an appointment
-                </button>
-              </div>
-            ) : (
-              paginatedAppts.map((appt) => {
-                const startTimeStr = new Date(appt.start_time).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                });
-                const endTimeStr = new Date(appt.end_time).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                });
-                const apptDateStr = new Date(appt.start_time).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                });
+            ) : viewMode === "roster" ? (
+              /* ── PATIENT ROSTER VIEW: Grouped by distinct patient for selected period ── */
+              periodStats.rosterList.length === 0 ? (
+                <div className="p-10 text-center space-y-2">
+                  <Users className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">
+                    No patients recorded for {periodLabel.toLowerCase()} with current filters.
+                  </p>
+                </div>
+              ) : (
+                paginatedRoster.map((item) => {
+                  const statusStyles: Record<string, string> = {
+                    scheduled: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300",
+                    confirmed: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300",
+                    arrived: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 font-bold",
+                    in_treatment: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 animate-pulse font-bold",
+                    completed: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300",
+                    cancelled: "bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400",
+                  };
 
-                const statusStyles: Record<string, string> = {
-                  scheduled: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300",
-                  confirmed: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300",
-                  arrived: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 font-bold",
-                  in_treatment: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 animate-pulse font-bold",
-                  completed: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300",
-                  cancelled: "bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400",
-                };
+                  const lastVisitDateStr = new Date(item.latestAppointment.start_time).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  });
+                  const lastVisitTimeStr = new Date(item.latestAppointment.start_time).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
 
-                return (
-                  <div
-                    key={appt.id}
-                    className="p-3.5 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-slate-50/60 dark:hover:bg-slate-850/50 transition-colors"
-                  >
-                    {/* Mobile Glanceable Top Bar (Phone only) */}
-                    <div className="flex sm:hidden items-center justify-between gap-2 pb-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-mono font-bold text-slate-800 dark:text-slate-200">
-                        <Clock className="w-3 h-3 text-teal-600 dark:text-teal-400 shrink-0" />
-                        <span>{startTimeStr}</span>
-                        <span className="text-slate-400 font-normal">({apptDateStr})</span>
-                      </div>
-
-                      <span
-                        className={`text-[10px] uppercase tracking-wider font-extrabold px-2.5 py-0.5 rounded-full border ${
-                          statusStyles[appt.status] || "bg-slate-100 text-slate-600"
-                        }`}
-                      >
-                        {appt.status.replace("_", " ")}
-                      </span>
-                    </div>
-
-                    {/* Time & Patient Details */}
-                    <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
-                      {/* Desktop Left Time Box */}
-                      <div className="hidden sm:flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-center min-w-[76px] shrink-0">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">
-                          {apptDateStr}
-                        </span>
-                        <span className="text-xs font-black font-mono text-slate-800 dark:text-slate-200">
-                          {startTimeStr}
-                        </span>
-                        <span className="text-[10px] text-slate-400">to {endTimeStr}</span>
-                      </div>
-
-                      <div className="space-y-1.5 flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Link
-                            href={`/patients/${appt.patient?.id}`}
-                            className="font-black text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 text-base flex items-center gap-1.5 group truncate"
-                          >
-                            <span className="truncate">
-                              {appt.patient?.first_name} {appt.patient?.last_name}
-                            </span>
-                            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-1 transition-transform shrink-0" />
-                          </Link>
-
-                          <span
-                            className={`hidden sm:inline-block text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full border ${
-                              statusStyles[appt.status] || "bg-slate-100 text-slate-600"
-                            }`}
-                          >
-                            {appt.status.replace("_", " ")}
-                          </span>
+                  return (
+                    <div
+                      key={item.patient?.id || item.latestAppointment.id}
+                      className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-slate-50/60 dark:hover:bg-slate-850/50 transition-colors"
+                    >
+                      <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
+                        {/* Initials Avatar */}
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-xs ring-2 ring-teal-500/20">
+                          {(item.patient?.first_name?.[0] || "P").toUpperCase()}
+                          {(item.patient?.last_name?.[0] || "").toUpperCase()}
                         </div>
 
-                        <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2.5 sm:gap-3 flex-wrap">
-                          <span>
-                            Attending: <strong className="text-slate-700 dark:text-slate-300">{appt.dentist?.full_name?.split(",")[0] || "Doctor"}</strong>
-                          </span>
-                          {appt.patient?.phone && (
-                            <a
-                              href={`tel:${appt.patient.phone}`}
-                              className="inline-flex items-center gap-1 font-mono text-[11px] text-teal-600 dark:text-teal-400 hover:underline"
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Link
+                              href={`/patients/${item.patient?.id}`}
+                              className="font-black text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 text-base flex items-center gap-1.5 group truncate"
                             >
-                              <Phone className="w-3 h-3 shrink-0" />
-                              <span>{appt.patient.phone}</span>
-                            </a>
+                              <span className="truncate">
+                                {item.patient?.first_name} {item.patient?.last_name}
+                              </span>
+                              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-1 transition-transform shrink-0" />
+                            </Link>
+
+                            {/* Visit Count in this Period */}
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+                              {item.visits.length} {item.visits.length === 1 ? "visit" : "visits"} in period
+                            </span>
+
+                            {/* Latest Visit Status */}
+                            <span
+                              className={`text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full border ${
+                                statusStyles[item.latestAppointment.status] || "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {item.latestAppointment.status.replace("_", " ")}
+                            </span>
+                          </div>
+
+                          <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2.5 sm:gap-3 flex-wrap">
+                            {calculateAge(item.patient?.dob) && (
+                              <span>
+                                Age: <strong className="text-slate-700 dark:text-slate-300">{calculateAge(item.patient?.dob)}</strong>
+                              </span>
+                            )}
+                            {item.patient?.gender && (
+                              <span className="capitalize">{item.patient.gender}</span>
+                            )}
+                            {item.patient?.phone && (
+                              <a
+                                href={`tel:${item.patient.phone}`}
+                                className="inline-flex items-center gap-1 font-mono text-[11px] text-teal-600 dark:text-teal-400 hover:underline"
+                              >
+                                <Phone className="w-3 h-3 shrink-0" />
+                                <span>{item.patient.phone}</span>
+                              </a>
+                            )}
+                            <span>
+                              Recent visit: <strong className="text-slate-700 dark:text-slate-300">{lastVisitDateStr} at {lastVisitTimeStr}</strong>
+                            </span>
+                          </div>
+
+                          {item.latestAppointment.notes && (
+                            <p className="text-xs text-slate-600 dark:text-slate-300 italic bg-slate-50 dark:bg-slate-800/50 px-2.5 py-1 rounded-lg max-w-lg border border-slate-200/60 dark:border-slate-750">
+                              "{item.latestAppointment.notes}"
+                            </p>
+                          )}
+
+                          {item.patient?.medical_alerts && (
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-[11px] font-bold">
+                              <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                              <span>Medical Alert: {item.patient.medical_alerts}</span>
+                            </div>
                           )}
                         </div>
+                      </div>
 
-                        {appt.notes && (
-                          <p className="text-xs text-slate-600 dark:text-slate-300 italic bg-slate-50 dark:bg-slate-800/50 px-2.5 py-1 rounded-lg max-w-lg border border-slate-200/60 dark:border-slate-750">
-                            "{appt.notes}"
-                          </p>
-                        )}
+                      {/* 1-Click Action: Open Patient 32-Tooth Odontogram */}
+                      <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto pt-1 sm:pt-0">
+                        <button
+                          onClick={() =>
+                            setTreatmentModal({
+                              isOpen: true,
+                              patientId: item.patient?.id,
+                              patientName: `${item.patient?.first_name} ${item.patient?.last_name}`,
+                              appointmentId: item.latestAppointment.id,
+                            })
+                          }
+                          className="flex-1 sm:flex-initial px-3 py-2 rounded-xl text-xs font-bold bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 transition-colors cursor-pointer flex items-center justify-center gap-1.5 min-h-[38px]"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Add Treatment</span>
+                        </button>
 
-                        {/* Medical Alerts badge */}
-                        {appt.patient?.medical_alerts && (
-                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-[11px] font-bold">
-                            <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                            <span>Medical Alert: {appt.patient.medical_alerts}</span>
-                          </div>
-                        )}
+                        <Link
+                          href={`/patients/${item.patient?.id}`}
+                          className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white transition-colors cursor-pointer flex items-center justify-center gap-1.5 min-h-[38px] shadow-2xs"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Odontogram & Chart</span>
+                        </Link>
                       </div>
                     </div>
+                  );
+                })
+              )
+            ) : (
+              /* ── QUEUE TIMELINE VIEW: Chronological / Latest-first appointments ── */
+              filteredAppointments.length === 0 ? (
+                <div className="p-10 text-center space-y-2">
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">
+                    No appointments found for {periodLabel.toLowerCase()} with selected filters.
+                  </p>
+                  <button
+                    onClick={() => setIsApptModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-600 hover:text-teal-700 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Book an appointment
+                  </button>
+                </div>
+              ) : (
+                paginatedAppts.map((appt) => {
+                  const startTimeStr = new Date(appt.start_time).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                  const endTimeStr = new Date(appt.end_time).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                  const apptDateStr = new Date(appt.start_time).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  });
 
-                    {/* Quick Status Progression & Direct Action Buttons (Mobile-Optimized Touch Grid) */}
-                    <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto pt-1 sm:pt-0">
-                      {/* Scheduled / Confirmed -> Mark Arrived */}
-                      {(appt.status === "scheduled" || appt.status === "confirmed") && (
-                        <button
-                          onClick={() => handleUpdateStatus(appt.id, "arrived")}
-                          className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-950/80 dark:text-amber-200 border border-amber-300/70 dark:border-amber-800/80 transition-colors cursor-pointer min-h-[42px] flex items-center justify-center"
-                        >
-                          Mark Arrived
-                        </button>
-                      )}
+                  const statusStyles: Record<string, string> = {
+                    scheduled: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300",
+                    confirmed: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300",
+                    arrived: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 font-bold",
+                    in_treatment: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 animate-pulse font-bold",
+                    completed: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300",
+                    cancelled: "bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400",
+                  };
 
-                      {/* Arrived -> Call to Operatory */}
-                      {appt.status === "arrived" && (
-                        <button
-                          onClick={() => handleUpdateStatus(appt.id, "in_treatment")}
-                          className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-extrabold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-98 text-white transition-all cursor-pointer flex items-center justify-center gap-1.5 min-h-[42px] shadow-sm shadow-purple-600/20"
-                        >
-                          <Activity className="w-4 h-4 animate-pulse" />
-                          <span>Call to Chair</span>
-                        </button>
-                      )}
-
-                      {/* In Treatment -> Record Treatment or Complete */}
-                      {appt.status === "in_treatment" && (
-                        <div className="grid grid-cols-2 sm:flex items-center gap-2 flex-1 sm:flex-initial">
-                          <button
-                            onClick={() =>
-                              setTreatmentModal({
-                                isOpen: true,
-                                patientId: appt.patient?.id,
-                                patientName: `${appt.patient?.first_name} ${appt.patient?.last_name}`,
-                                appointmentId: appt.id,
-                              })
-                            }
-                            className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white transition-colors cursor-pointer flex items-center justify-center gap-1 min-h-[42px]"
-                          >
-                            <Sparkles className="w-3.5 h-3.5" />
-                            <span>Treatment</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleUpdateStatus(appt.id, "completed")}
-                            className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer min-h-[42px] flex items-center justify-center"
-                          >
-                            Complete
-                          </button>
+                  return (
+                    <div
+                      key={appt.id}
+                      className="p-3.5 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-slate-50/60 dark:hover:bg-slate-850/50 transition-colors"
+                    >
+                      {/* Mobile Glanceable Top Bar (Phone only) */}
+                      <div className="flex sm:hidden items-center justify-between gap-2 pb-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-mono font-bold text-slate-800 dark:text-slate-200">
+                          <Clock className="w-3 h-3 text-teal-600 dark:text-teal-400 shrink-0" />
+                          <span>{startTimeStr}</span>
+                          <span className="text-slate-400 font-normal">({apptDateStr})</span>
                         </div>
-                      )}
 
-                      {/* Odontogram Link Icon */}
-                      <Link
-                        href={`/patients/${appt.patient?.id}`}
-                        className="p-2.5 rounded-xl text-slate-400 hover:text-teal-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors min-h-[42px] min-w-[42px] flex items-center justify-center shrink-0"
-                        title="Open Patient Dental Chart & Odontogram"
-                      >
-                        <ChevronRight className="w-5 h-5" />
-                      </Link>
+                        <span
+                          className={`text-[10px] uppercase tracking-wider font-extrabold px-2.5 py-0.5 rounded-full border ${
+                            statusStyles[appt.status] || "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {appt.status.replace("_", " ")}
+                        </span>
+                      </div>
+
+                      {/* Time & Patient Details */}
+                      <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
+                        {/* Desktop Left Time Box */}
+                        <div className="hidden sm:flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-center min-w-[76px] shrink-0">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">
+                            {apptDateStr}
+                          </span>
+                          <span className="text-xs font-black font-mono text-slate-800 dark:text-slate-200">
+                            {startTimeStr}
+                          </span>
+                          <span className="text-[10px] text-slate-400">to {endTimeStr}</span>
+                        </div>
+
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Link
+                              href={`/patients/${appt.patient?.id}`}
+                              className="font-black text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 text-base flex items-center gap-1.5 group truncate"
+                            >
+                              <span className="truncate">
+                                {appt.patient?.first_name} {appt.patient?.last_name}
+                              </span>
+                              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-1 transition-transform shrink-0" />
+                            </Link>
+
+                            <span
+                              className={`hidden sm:inline-block text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full border ${
+                                statusStyles[appt.status] || "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {appt.status.replace("_", " ")}
+                            </span>
+                          </div>
+
+                          <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2.5 sm:gap-3 flex-wrap">
+                            <span>
+                              Attending: <strong className="text-slate-700 dark:text-slate-300">{appt.dentist?.full_name?.split(",")[0] || "Doctor"}</strong>
+                            </span>
+                            {calculateAge(appt.patient?.dob) && (
+                              <span>
+                                Age: <strong className="text-slate-700 dark:text-slate-300">{calculateAge(appt.patient?.dob)}</strong>
+                              </span>
+                            )}
+                            {appt.patient?.phone && (
+                              <a
+                                href={`tel:${appt.patient.phone}`}
+                                className="inline-flex items-center gap-1 font-mono text-[11px] text-teal-600 dark:text-teal-400 hover:underline"
+                              >
+                                <Phone className="w-3 h-3 shrink-0" />
+                                <span>{appt.patient.phone}</span>
+                              </a>
+                            )}
+                          </div>
+
+                          {appt.notes && (
+                            <p className="text-xs text-slate-600 dark:text-slate-300 italic bg-slate-50 dark:bg-slate-800/50 px-2.5 py-1 rounded-lg max-w-lg border border-slate-200/60 dark:border-slate-750">
+                              "{appt.notes}"
+                            </p>
+                          )}
+
+                          {/* Medical Alerts badge */}
+                          {appt.patient?.medical_alerts && (
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-[11px] font-bold">
+                              <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                              <span>Medical Alert: {appt.patient.medical_alerts}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Quick Status Progression & Direct Action Buttons */}
+                      <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto pt-1 sm:pt-0">
+                        {/* Scheduled / Confirmed -> Mark Arrived */}
+                        {(appt.status === "scheduled" || appt.status === "confirmed") && (
+                          <button
+                            onClick={() => handleUpdateStatus(appt.id, "arrived")}
+                            className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-950/80 dark:text-amber-200 border border-amber-300/70 dark:border-amber-800/80 transition-colors cursor-pointer min-h-[42px] flex items-center justify-center"
+                          >
+                            Mark Arrived
+                          </button>
+                        )}
+
+                        {/* Arrived -> Call to Operatory */}
+                        {appt.status === "arrived" && (
+                          <button
+                            onClick={() => handleUpdateStatus(appt.id, "in_treatment")}
+                            className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-extrabold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-98 text-white transition-all cursor-pointer flex items-center justify-center gap-1.5 min-h-[42px] shadow-sm shadow-purple-600/20"
+                          >
+                            <Activity className="w-4 h-4 animate-pulse" />
+                            <span>Call to Chair</span>
+                          </button>
+                        )}
+
+                        {/* In Treatment -> Record Treatment or Complete */}
+                        {appt.status === "in_treatment" && (
+                          <div className="grid grid-cols-2 sm:flex items-center gap-2 flex-1 sm:flex-initial">
+                            <button
+                              onClick={() =>
+                                setTreatmentModal({
+                                  isOpen: true,
+                                  patientId: appt.patient?.id,
+                                  patientName: `${appt.patient?.first_name} ${appt.patient?.last_name}`,
+                                  appointmentId: appt.id,
+                                })
+                              }
+                              className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white transition-colors cursor-pointer flex items-center justify-center gap-1 min-h-[42px]"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>Treatment</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleUpdateStatus(appt.id, "completed")}
+                              className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer min-h-[42px] flex items-center justify-center"
+                            >
+                              Complete
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Odontogram Link Icon */}
+                        <Link
+                          href={`/patients/${appt.patient?.id}`}
+                          className="p-2.5 rounded-xl text-slate-400 hover:text-teal-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors min-h-[42px] min-w-[42px] flex items-center justify-center shrink-0"
+                          title="Open Patient Dental Chart & Odontogram"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })
+              )
             )}
 
-            {/* Pagination for Appointments Queue */}
-            <Pagination
-              currentPage={apptsPage}
-              totalPages={Math.max(1, Math.ceil(filteredAppointments.length / apptsPageSize))}
-              totalItems={filteredAppointments.length}
-              pageSize={apptsPageSize}
-              onPageChange={setApptsPage}
-              itemName="visits"
-              compact={true}
-            />
+            {/* Pagination for Appointments Queue or Patient Roster */}
+            {viewMode === "queue" ? (
+              <Pagination
+                currentPage={apptsPage}
+                totalPages={Math.max(1, Math.ceil(filteredAppointments.length / apptsPageSize))}
+                totalItems={filteredAppointments.length}
+                pageSize={apptsPageSize}
+                onPageChange={setApptsPage}
+                itemName="visits"
+                compact={true}
+              />
+            ) : (
+              <Pagination
+                currentPage={rosterPage}
+                totalPages={Math.max(1, Math.ceil(periodStats.rosterList.length / rosterPageSize))}
+                totalItems={periodStats.rosterList.length}
+                pageSize={rosterPageSize}
+                onPageChange={setRosterPage}
+                itemName="patients"
+                compact={true}
+              />
+            )}
           </div>
         </div>
 

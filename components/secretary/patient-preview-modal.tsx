@@ -18,8 +18,10 @@ import {
   FileText,
   ShieldCheck,
   Lock,
+  Pencil,
 } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { EditPatientModal } from "@/components/patients/edit-patient-modal";
 
 interface PatientPreviewModalProps {
   isOpen: boolean;
@@ -42,6 +44,7 @@ export function PatientPreviewModal({
   const [bills, setBills] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"info" | "treatments" | "chart" | "bills">("info");
   const [isLoading, setIsLoading] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   const supabase = createClient();
 
@@ -120,6 +123,14 @@ export function PatientPreviewModal({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsEditOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950 dark:hover:bg-teal-900 text-teal-700 dark:text-teal-300 font-bold text-xs border border-teal-200 dark:border-teal-800 transition-colors cursor-pointer"
+              title="Edit personal information"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              <span>Edit Info</span>
+            </button>
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -237,6 +248,13 @@ export function PatientPreviewModal({
 
                   {/* Quick Action Buttons for Secretary */}
                   <div className="flex flex-wrap gap-2.5 pt-2">
+                    <button
+                      onClick={() => setIsEditOpen(true)}
+                      className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-teal-600" />
+                      <span>Edit Personal Info</span>
+                    </button>
                     {onOpenApptModal && (
                       <button
                         onClick={() => {
@@ -397,9 +415,18 @@ export function PatientPreviewModal({
               )}
             </>
           )}
+          </div>
         </div>
       </div>
-    </div>
-  </ModalPortal>
+
+      <EditPatientModal
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        patient={patient}
+        onSuccess={(updated) => {
+          setPatient(updated);
+        }}
+      />
+    </ModalPortal>
   );
 }

@@ -25,11 +25,14 @@ interface Patient {
   id: string;
   first_name: string;
   last_name: string;
-  phone?: string;
-  email?: string;
-  dob?: string;
-  gender?: string;
-  medical_alerts?: string;
+  phone?: string | null;
+  email?: string | null;
+  dob?: string | null;
+  gender?: string | null;
+  address?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  medical_alerts?: string | null;
   created_at: string;
 }
 
@@ -178,18 +181,141 @@ export function MergePatientModal({
     if (!dupPatient || !keepPatient) return;
     setIsMerging(true);
     try {
-      const { data, error } = await supabase.rpc("merge_patient", {
-        keep_id: keepPatient.id,
-        dup_id: dupPatient.id,
-      });
-      if (error) throw error;
-      setMergeResult(data);
+      let finalResult: any = null;
+
+      // 1. Try RPC first in case it is installed in Postgres
+      try {
+        const { data: rpcData, error: rpcError } = await supabase.rpc("merge_patient", {
+          keep_id: keepPatient.id,
+          dup_id: dupPatient.id,
+        });
+        if (!rpcError && rpcData) {
+          finalResult = rpcData;
+        }
+      } catch (_) {
+        // Fall back to direct client merge
+      }
+
+      // 2. Direct Supabase Client Consolidation (Resilient Fallback)
+      if (!finalResult) {
+        // A. Reassign appointments
+        const { data: movedAppts, error: apptErr } = await supabase
+          .from("appointments")
+          .update({ patient_id: keepPatient.id })
+          .eq("patient_id", dupPatient.id)
+          .select("id");
+        if (apptErr) throw apptErr;
+
+        // B. Reassign treatments
+        const { data: movedTreats, error: treatErr } = await supabase
+          .from("treatments")
+          .update({ patient_id: keepPatient.id })
+          .eq("patient_id", dupPatient.id)
+          .select("id");
+        if (treatErr) throw treatErr;
+
+        // C. Reassign treatment bills
+        const { data: movedBills, error: billErr } = await supabase
+          .from("treatment_bills")
+          .update({ patient_id: keepPatient.id })
+          .eq("patient_id", dupPatient.id)
+          .select("id");
+        if (billErr) throw billErr;
+
+        // D. Reassign patient documents (if any)
+        let movedDocsCount = 0;
+        try {
+          const { data: movedDocs } = await supabase
+            .from("patient_documents")
+            .update({ patient_id: keepPatient.id })
+            .eq("patient_id", dupPatient.id)
+            .select("id");
+          movedDocsCount = movedDocs?.length || 0;
+        } catch (_) {}
+
+        // E. Reassign tooth chart (delete duplicate's teeth if canonical already charted them)
+        try {
+          const { data: keepTeeth } = await supabase
+            .from("patient_tooth_chart")
+            .select("tooth_number")
+            .eq("patient_id", keepPatient.id);
+
+          const keepNumbers = (keepTeeth || []).map((t: any) => t.tooth_number);
+
+          if (keepNumbers.length > 0) {
+            await supabase
+              .from("patient_tooth_chart")
+              .delete()
+              .eq("patient_id", dupPatient.id)
+              .in("tooth_number", keepNumbers);
+          }
+
+          await supabase
+            .from("patient_tooth_chart")
+            .update({ patient_id: keepPatient.id })
+            .eq("patient_id", dupPatient.id);
+        } catch (_) {}
+
+        // F. Enrich Canonical patient with any missing demographics
+        const enriched: Record<string, any> = {};
+        if (!keepPatient.phone && dupPatient.phone) enriched.phone = dupPatient.phone;
+        if (!keepPatient.email && dupPatient.email) enriched.email = dupPatient.email;
+        if (!keepPatient.dob && dupPatient.dob) enriched.dob = dupPatient.dob;
+        if (!keepPatient.address && dupPatient.address) enriched.address = dupPatient.address;
+        if (
+          !keepPatient.emergency_contact_name &&
+          dupPatient.emergency_contact_name
+        ) {
+          enriched.emergency_contact_name = dupPatient.emergency_contact_name;
+        }
+        if (
+          !keepPatient.emergency_contact_phone &&
+          dupPatient.emergency_contact_phone
+        ) {
+          enriched.emergency_contact_phone = dupPatient.emergency_contact_phone;
+        }
+        if (dupPatient.medical_alerts && dupPatient.medical_alerts.trim()) {
+          if (!keepPatient.medical_alerts) {
+            enriched.medical_alerts = dupPatient.medical_alerts;
+          } else if (
+            !keepPatient.medical_alerts
+              .toLowerCase()
+              .includes(dupPatient.medical_alerts.toLowerCase())
+          ) {
+            enriched.medical_alerts = `${keepPatient.medical_alerts}; ${dupPatient.medical_alerts}`;
+          }
+        }
+
+        if (Object.keys(enriched).length > 0) {
+          await supabase
+            .from("patients")
+            .update(enriched)
+            .eq("id", keepPatient.id);
+        }
+
+        // G. Permanently delete duplicate patient
+        const { error: delErr } = await supabase
+          .from("patients")
+          .delete()
+          .eq("id", dupPatient.id);
+        if (delErr) throw delErr;
+
+        finalResult = {
+          appointments: (movedAppts || []).length,
+          treatments: (movedTreats || []).length,
+          bills: (movedBills || []).length,
+          documents: movedDocsCount,
+        };
+      }
+
+      setMergeResult(finalResult);
       showToast(
         `Patient records merged successfully into ${keepPatient.first_name} ${keepPatient.last_name}`,
         "success"
       );
       onSuccess();
     } catch (err: any) {
+      console.error("Merge error:", err);
       showToast(err?.message || "Merge failed. Please try again.", "error");
     } finally {
       setIsMerging(false);

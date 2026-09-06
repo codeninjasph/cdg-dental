@@ -9,6 +9,7 @@ import {
   getRoleFromCookie,
 } from "@/lib/supabase/get-user-role";
 import { getDentistDutyForDate, DentistDutyStatus } from "@/lib/duty-schedule";
+import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
 
 interface ToastNotification {
   id: string;
@@ -333,19 +334,12 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
 
       {/* ── Global Toast Notifications — bottom-right ── */}
       <div
-        style={{ position: "fixed", bottom: "24px", right: "24px", zIndex: 9999 }}
-        className="flex flex-col-reverse gap-2.5 pointer-events-none max-w-xs w-full"
+        style={{ position: "fixed", bottom: "24px", right: "24px", zIndex: 99999 }}
+        className="flex flex-col-reverse gap-2.5 pointer-events-none max-w-sm sm:max-w-md w-full"
       >
         {toasts.map((toast) => {
-          const isSuccess = toast.type === "success";
-          const isError   = toast.type === "error";
-          const isInfo    = toast.type === "info";
-
-          const colors = isError
-            ? { wrap: "bg-slate-950 border-rose-500/50",   text: "text-rose-300",   sub: "text-rose-400/60",  bar: "bg-rose-500",    icon: "🚨" }
-            : isInfo
-            ? { wrap: "bg-slate-950 border-slate-600/60",  text: "text-slate-100",  sub: "text-slate-400",   bar: "bg-slate-400",   icon: "ℹ️" }
-            : { wrap: "bg-slate-950 border-teal-500/50",   text: "text-teal-300",   sub: "text-teal-400/60", bar: "bg-teal-500",    icon: "✅" };
+          const isError = toast.type === "error";
+          const isInfo = toast.type === "info";
 
           return (
             <div
@@ -354,31 +348,65 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
                 animation: "toastSlideIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both",
                 pointerEvents: "auto",
               }}
-              className={`relative flex items-start gap-3 px-4 py-3.5 rounded-2xl border shadow-2xl shadow-black/50 overflow-hidden ${colors.wrap}`}
+              className={`relative flex items-start gap-3 p-4 rounded-2xl border shadow-2xl overflow-hidden backdrop-blur-md transition-all ${
+                isError
+                  ? "bg-white dark:bg-slate-900 border-rose-200 dark:border-rose-900/60 shadow-rose-950/10"
+                  : isInfo
+                  ? "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-slate-950/10"
+                  : "bg-white dark:bg-slate-900 border-emerald-200 dark:border-emerald-900/60 shadow-emerald-950/10"
+              }`}
             >
-              {/* Icon */}
-              <span className="text-base mt-0.5 shrink-0 leading-none">{colors.icon}</span>
+              {/* Icon Pill */}
+              <div
+                className={`p-2 rounded-xl shrink-0 ${
+                  isError
+                    ? "bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400"
+                    : isInfo
+                    ? "bg-teal-100 dark:bg-teal-950 text-teal-600 dark:text-teal-400"
+                    : "bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400"
+                }`}
+              >
+                {isError ? (
+                  <AlertCircle className="w-5 h-5" />
+                ) : isInfo ? (
+                  <Info className="w-5 h-5" />
+                ) : (
+                  <CheckCircle2 className="w-5 h-5" />
+                )}
+              </div>
 
-              {/* Message */}
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-semibold leading-snug ${colors.text}`}>
+              {/* Message Details */}
+              <div className="flex-1 min-w-0 pr-1">
+                <h5
+                  className={`text-xs font-bold uppercase tracking-wider ${
+                    isError
+                      ? "text-rose-600 dark:text-rose-400"
+                      : isInfo
+                      ? "text-teal-600 dark:text-teal-400"
+                      : "text-emerald-600 dark:text-emerald-400"
+                  }`}
+                >
+                  {isError ? "Notification Alert" : isInfo ? "Information" : "Success"}
+                </h5>
+                <p className="text-xs sm:text-sm font-medium leading-relaxed text-slate-800 dark:text-slate-100 mt-0.5 break-words">
                   {toast.message}
                 </p>
               </div>
 
-              {/* Close */}
+              {/* Close Button */}
               <button
                 onClick={() => removeToast(toast.id)}
-                className="shrink-0 text-slate-500 hover:text-slate-300 transition-colors text-base leading-none mt-0.5 cursor-pointer"
+                className="shrink-0 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Dismiss"
               >
-                ×
+                <X className="w-4 h-4" />
               </button>
 
               {/* Auto-dismiss progress bar */}
               <div
-                className="absolute bottom-0 left-0 h-[2px] rounded-full"
+                className="absolute bottom-0 left-0 h-[3px] rounded-full"
                 style={{
-                  background: isError ? "#f43f5e" : isInfo ? "#94a3b8" : "#14b8a6",
+                  background: isError ? "#f43f5e" : isInfo ? "#0d9488" : "#10b981",
                   animation: "toastProgress 4s linear forwards",
                   width: "100%",
                 }}
