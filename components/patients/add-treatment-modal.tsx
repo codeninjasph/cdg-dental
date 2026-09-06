@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useClinic } from "@/context/clinic-context";
-import { X, Sparkles, FileText, CheckCircle2 } from "lucide-react";
+import { X, Sparkles, FileText, CheckCircle2, Tag } from "lucide-react";
 import { TOOTH_METADATA } from "@/lib/tooth-data";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { DentalService } from "@/lib/db/services";
 
 interface AddTreatmentModalProps {
   isOpen: boolean;
@@ -16,7 +17,7 @@ interface AddTreatmentModalProps {
   appointmentId?: string | null;
 }
 
-const COMMON_PROCEDURES = [
+const FALLBACK_PROCEDURES = [
   { name: "Ultrasonic Scaling & Polishing", cost: 2500 },
   { name: "Light-Cure Composite Restoration (Anterior)", cost: 2800 },
   { name: "Light-Cure Composite Restoration (Posterior MOD)", cost: 3200 },
@@ -38,6 +39,7 @@ export function AddTreatmentModal({
   appointmentId,
 }: AddTreatmentModalProps) {
   const { currentStaff, staffList, showToast, activeBranch } = useClinic();
+  const [catalogServices, setCatalogServices] = useState<DentalService[]>([]);
   const [procedureName, setProcedureName] = useState("");
   const [toothNumber, setToothNumber] = useState<string>(
     initialToothNumber ? String(initialToothNumber) : ""
@@ -48,13 +50,30 @@ export function AddTreatmentModal({
   const [immediateInvoice, setImmediateInvoice] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Load catalog services dynamically
+  useEffect(() => {
+    if (isOpen) {
+      fetch("/api/admin/services?onlyActive=true")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.services && data.services.length > 0) {
+            setCatalogServices(data.services);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
+
   const dentists = staffList.filter((s) => s.role === "dentist" || s.role === "admin");
 
   if (!isOpen) return null;
 
-  const handleQuickProcedure = (proc: { name: string; cost: number }) => {
+  const handleQuickProcedure = (proc: { name: string; cost: number; description?: string | null }) => {
     setProcedureName(proc.name);
     setCost(String(proc.cost));
+    if (!clinicalNotes && proc.description) {
+      setClinicalNotes(proc.description);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -113,6 +132,29 @@ export function AddTreatmentModal({
         }
       }
 
+      // Log to immutable audit trail
+      fetch("/api/admin/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          actorId: currentStaff?.id || null,
+          actorName: currentStaff?.full_name || "Doctor",
+          actorRole: currentStaff?.role || "dentist",
+          actionCategory: "treatment",
+          actionType: "TREATMENT_RECORDED",
+          entityType: "treatment",
+          entityId: treatment?.id,
+          description: `Recorded clinical treatment: '${procedureName.trim()}'${tNum ? ` (Tooth #${tNum})` : ""} at ₱${numCost.toLocaleString()}.`,
+          metadata: {
+            patient_id: patientId,
+            tooth_number: tNum,
+            cost: numCost,
+            immediate_invoice: immediateInvoice,
+          },
+          branchName: activeBranch?.name || "Main Clinic Hub",
+        }),
+      }).catch(() => {});
+
       showToast(
         immediateInvoice
           ? `Recorded and invoiced: ${procedureName.trim()}`
@@ -157,22 +199,66 @@ export function AddTreatmentModal({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[78vh] overflow-y-auto">
+          {/* Master Fee Schedule Catalog Picker */}
+          <div className="space-y-1.5 p-3 rounded-xl bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200/70 dark:border-teal-900/60">
+            <label className="text-xs font-bold text-teal-950 dark:text-teal-200 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                <span>Select from Master Fee Schedule</span>
+              </span>
+              <span className="text-[10px] text-teal-600 dark:text-teal-400 font-normal">
+                Standardizes pricing & POS invoice
+              </span>
+            </label>
+            <select
+              value=""
+              onChange={(e) => {
+                const found = catalogServices.find((s) => s.name === e.target.value);
+                if (found) {
+                  handleQuickProcedure({
+                    name: found.name,
+                    cost: found.base_price,
+                    description: found.description,
+                  });
+                }
+              }}
+              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 cursor-pointer"
+            >
+              <option value="">-- Choose from Master Catalog (Autofills Price) --</option>
+              {Array.from(new Set(catalogServices.map((s) => s.category))).map((cat) => (
+                <optgroup key={cat} label={cat}>
+                  {catalogServices
+                    .filter((s) => s.category === cat)
+                    .map((s) => (
+                      <option key={s.id} value={s.name}>
+                        {s.code ? `[${s.code}] ` : ""}{s.name} — ₱{Number(s.base_price).toLocaleString()}
+                      </option>
+                    ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
           {/* Quick Procedure Presets */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
               Quick Select Common Procedures
             </label>
             <div className="flex flex-wrap gap-1.5">
-              {COMMON_PROCEDURES.slice(0, 6).map((p) => (
-                <button
-                  key={p.name}
-                  type="button"
-                  onClick={() => handleQuickProcedure(p)}
-                  className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium hover:bg-teal-50 dark:hover:bg-teal-950/40 hover:border-teal-300 dark:hover:border-teal-700 text-slate-700 dark:text-slate-300 transition-colors"
-                >
-                  {p.name.split("(")[0].trim()} (₱{p.cost.toLocaleString()})
-                </button>
-              ))}
+              {(catalogServices.length > 0 ? catalogServices.slice(0, 8) : FALLBACK_PROCEDURES).map((p) => {
+                const pCost = 'base_price' in p ? p.base_price : p.cost;
+                const pDesc = 'description' in p ? p.description : undefined;
+                return (
+                  <button
+                    key={p.name}
+                    type="button"
+                    onClick={() => handleQuickProcedure({ name: p.name, cost: Number(pCost), description: pDesc })}
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium hover:bg-teal-50 dark:hover:bg-teal-950/40 hover:border-teal-300 dark:hover:border-teal-700 text-slate-700 dark:text-slate-300 transition-colors"
+                  >
+                    {p.name.split("(")[0].trim()} (₱{Number(pCost).toLocaleString()})
+                  </button>
+                );
+              })}
             </div>
           </div>
 

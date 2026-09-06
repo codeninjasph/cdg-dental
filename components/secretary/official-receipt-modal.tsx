@@ -69,6 +69,22 @@ export function OfficialReceiptModal({ isOpen, onClose, bill }: OfficialReceiptM
   const installmentAmt = Number(bill.installment_amount || 0);
   const completedCount = installmentAmt > 0 ? Math.floor(totalPaid / installmentAmt) : (bill.payments?.length || 0);
 
+  // Extract statutory discount details (RA 9994 / RA 10754)
+  const statutoryInfo =
+    bill.preferred_schedule?.statutory_discount ||
+    (() => {
+      if (!bill.notes) return null;
+      const match = bill.notes.match(
+        /\[STATUTORY DISCOUNT:\s*([A-Z\s0-9()]+)\s*\|\s*ID:\s*([^|\]]+)(?:\s*\|\s*CARDHOLDER:\s*([^|\]]+))?\]/i
+      );
+      if (!match) return null;
+      return {
+        statutory_act: match[1].trim(),
+        id_number: match[2].trim(),
+        cardholder_name: match[3]?.trim(),
+      };
+    })();
+
   const handlePrint = () => {
     window.print();
   };
@@ -220,11 +236,31 @@ export function OfficialReceiptModal({ isOpen, onClose, bill }: OfficialReceiptM
               </div>
 
               {Number(bill.discount_amount) > 0 && (
-                <div className="flex justify-between items-center py-1 text-emerald-600 dark:text-emerald-400 font-medium">
-                  <span>Clinic Courtesy / Voucher Discount</span>
-                  <span className="font-mono">
-                    - ₱{Number(bill.discount_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </span>
+                <div className="space-y-1 py-1">
+                  <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400 font-medium">
+                    <span>
+                      {statutoryInfo
+                        ? `🇵🇭 Statutory Exemption (${statutoryInfo.statutory_act || "RA 9994 / RA 10754"})`
+                        : "Clinic Courtesy / Voucher Discount"}
+                    </span>
+                    <span className="font-mono">
+                      - ₱{Number(bill.discount_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {statutoryInfo && (
+                    <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-[10px] text-purple-900 dark:text-purple-200 flex items-center justify-between">
+                      <div>
+                        <span className="font-bold">Official ID:</span>{" "}
+                        <span className="font-mono font-bold">{statutoryInfo.id_number}</span>
+                        {statutoryInfo.cardholder_name && (
+                          <span className="ml-1.5">({statutoryInfo.cardholder_name})</span>
+                        )}
+                      </div>
+                      <span className="font-semibold text-purple-700 dark:text-purple-300">
+                        20% Statutory Deduction
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
 

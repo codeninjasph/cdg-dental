@@ -1,0 +1,86 @@
+[
+  {
+    "id": "aud-001",
+    "created_at": "2026-09-06T03:15:22.000Z",
+    "actor_id": "00000000-0000-0000-0000-000000000030",
+    "actor_name": "Clinic Administrator",
+    "actor_role": "admin",
+    "action_category": "access_control",
+    "action_type": "STAFF_INVITED",
+    "entity_type": "profile",
+    "entity_id": "usr-dentist-002",
+    "description": "Invited Dr. Patricia Hernandez (Dentist) assigned to Limketkai Downtown branch.",
+    "metadata": {
+      "email": "dr.hernandez@gmail.com",
+      "role": "dentist",
+      "branch_name": "CDG Dental Clinic — Limketkai Downtown"
+    },
+    "branch_id": "00000000-0000-0000-0000-000000000001",
+    "branch_name": "CDG Dental Clinic — Limketkai Downtown"
+  },
+  {
+    "id": "aud-002",
+    "created_at": "2026-09-06T03:45:10.000Z",
+    "actor_id": "00000000-0000-0000-0000-000000000030",
+    "actor_name": "Clinic Administrator",
+    "actor_role": "admin",
+    "action_category": "pricing",
+    "action_type": "SERVICE_PRICING_UPDATED",
+    "entity_type": "dental_service",
+    "entity_id": "srv-002",
+    "description": "Updated master base fee for Ultrasonic Scaling & Polishing (Prophylaxis) from ₱2,200 to ₱2,500.",
+    "metadata": {
+      "service_code": "PR-02",
+      "service_name": "Ultrasonic Scaling & Polishing (Prophylaxis)",
+      "old_base_price": 2200,
+      "new_base_price": 2500
+    },
+    "branch_id": null,
+    "branch_name": "Clinic-wide"
+  },
+  {
+    "id": "aud-003",
+    "created_at": "2026-09-06T04:12:05.000Z",
+    "actor_id": "00000000-0000-0000-0000-000000000020",
+    "actor_name": "Front-Desk Secretary",
+    "actor_role": "secretary",
+    "action_category": "billing",
+    "action_type": "DISCOUNT_APPLIED",
+    "entity_type": "treatment_bill",
+    "entity_id": "inv-202609-0012",
+    "description": "Applied 20% Senior Citizen Statutory Discount (RA 9994) of ₱700.00 to Invoice #INV-202609-0012.",
+    "metadata": {
+      "invoice_number": "INV-202609-0012",
+      "patient_name": "Corazon Bautista",
+      "discount_type": "senior",
+      "discount_rate": 0.20,
+      "discount_amount": 700,
+      "statutory_id_number": "OSCA-CDO-2026-8819",
+      "statutory_cardholder": "Corazon Bautista",
+      "law_reference": "Republic Act 9994 (Expanded Senior Citizens Act of 2010)"
+    },
+    "branch_id": "00000000-0000-0000-0000-000000000001",
+    "branch_name": "CDG Dental Clinic — Limketkai Downtown"
+  },
+  {
+    "id": "aud-004",
+    "created_at": "2026-09-06T04:28:40.000Z",
+    "actor_id": "00000000-0000-0000-0000-000000000020",
+    "actor_name": "Front-Desk Secretary",
+    "actor_role": "secretary",
+    "action_category": "patient",
+    "action_type": "PATIENT_MERGED",
+    "entity_type": "patient",
+    "entity_id": "pat-005",
+    "description": "Merged duplicate patient profile 'Ricardo Dalisay' (ID: pat-009) into primary profile (ID: pat-005).",
+    "metadata": {
+      "primary_patient_id": "pat-005",
+      "merged_patient_id": "pat-009",
+      "reassigned_appointments": 2,
+      "reassigned_bills": 1,
+      "reassigned_treatments": 3
+    },
+    "branch_id": "00000000-0000-0000-0000-000000000001",
+    "branch_name": "CDG Dental Clinic — Limketkai Downtown"
+  }
+]

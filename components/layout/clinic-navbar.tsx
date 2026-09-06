@@ -20,6 +20,8 @@ import {
   Clock,
   FileText,
   BarChart3,
+  Tag,
+  ShieldCheck,
 } from "lucide-react";
 import { UserRole } from "@/types/dental";
 import { createClient } from "@/lib/supabase/client";
@@ -82,6 +84,8 @@ export function ClinicNavbar() {
     { href: "/appointments", label: "Appointments", shortLabel: "Appts", icon: Calendar },
     { href: "/patients", label: "Patients", shortLabel: "Patients", icon: Users },
     { href: "/billing", label: "Billing & POS", shortLabel: "Billing", icon: CreditCard },
+    { href: "/admin/services", label: "Fee Schedule", shortLabel: "Fees", icon: Tag },
+    { href: "/admin/audit", label: "Audit Trail", shortLabel: "Audit", icon: ShieldCheck },
     { href: "/admin/users", label: "Staff & Access", shortLabel: "Staff", icon: Shield },
   ];
 
@@ -422,6 +426,22 @@ export function ClinicNavbar() {
                       >
                         <Shield className="w-3.5 h-3.5 text-violet-400" />
                         <span>Staff Directory & Access Control</span>
+                      </Link>
+                      <Link
+                        href="/admin/services"
+                        onClick={() => setRoleOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-emerald-300 hover:text-white bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 font-bold transition-all cursor-pointer"
+                      >
+                        <Tag className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Fee Schedule & Procedure Catalog</span>
+                      </Link>
+                      <Link
+                        href="/admin/audit"
+                        onClick={() => setRoleOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-purple-300 hover:text-white bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 font-bold transition-all cursor-pointer"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
+                        <span>Audit Trail & Activity Log</span>
                       </Link>
                       <Link
                         href="/admin/branches"

@@ -18,6 +18,7 @@ import {
   Repeat,
   CalendarClock,
   Check,
+  ShieldCheck,
 } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
 
@@ -123,6 +124,9 @@ export function CreateBillModal({
   // Financial Amounts
   const [totalAmount, setTotalAmount] = useState<string>("0");
   const [discountAmount, setDiscountAmount] = useState<string>("0");
+  const [discountType, setDiscountType] = useState<"none" | "senior" | "pwd" | "courtesy" | "promo" | "custom">("none");
+  const [discountIdNumber, setDiscountIdNumber] = useState<string>("");
+  const [discountIdCardholder, setDiscountIdCardholder] = useState<string>("");
   const [downpaymentAmount, setDownpaymentAmount] = useState<string>("5000");
   const [installmentAmount, setInstallmentAmount] = useState<string>("1500");
   const [totalInstallments, setTotalInstallments] = useState<number>(24);
@@ -275,10 +279,23 @@ export function CreateBillModal({
     });
   };
 
-  const handleApplyQuickDiscount = (rate: number, label: string) => {
+  const handleApplyQuickDiscount = (
+    rate: number,
+    label: string,
+    type: "senior" | "pwd" | "courtesy" | "promo" | "custom"
+  ) => {
     const total = Math.max(0, Number(totalAmount) || 0);
     const disc = Math.round(total * rate);
     setDiscountAmount(String(disc));
+    setDiscountType(type);
+
+    if ((type === "senior" || type === "pwd") && !discountIdCardholder) {
+      const p = patients.find((pat) => pat.id === patientId);
+      if (p) {
+        setDiscountIdCardholder(`${p.first_name} ${p.last_name}`.trim());
+      }
+    }
+
     showToast(`Applied ${label} (${(rate * 100).toFixed(0)}% off: ₱${disc.toLocaleString()})`, "info");
   };
 
@@ -310,11 +327,34 @@ export function CreateBillModal({
       return;
     }
 
+    // Strict Philippine Statutory Discount Validation (RA 9994 / RA 10754)
+    if (numDiscount > 0 && (discountType === "senior" || discountType === "pwd")) {
+      if (!discountIdNumber.trim()) {
+        setErrorMessage(
+          `Tax Compliance Error: ${discountType === "senior" ? "Senior Citizen OSCA ID" : "PWD ID"} number is strictly required for official receipts under Philippine Tax Regulations (RA 9994 / RA 10754).`
+        );
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setErrorMessage(null);
 
     try {
-      let preferredScheduleObj: InstallmentPreferredSchedule | null = null;
+      // Build statutory discount metadata
+      const statutoryDiscountMeta =
+        numDiscount > 0 && (discountType === "senior" || discountType === "pwd")
+          ? {
+              type: discountType,
+              id_number: discountIdNumber.trim(),
+              cardholder_name: discountIdCardholder.trim() || undefined,
+              statutory_act: discountType === "senior" ? "RA 9994" : "RA 10754",
+              rate_percentage: 20,
+              discount_amount: numDiscount,
+            }
+          : null;
+
+      let preferredScheduleObj: any = null;
       if (isInstallment && hasStandingSchedule) {
         preferredScheduleObj = {
           standing_day: standingDay,
@@ -322,6 +362,22 @@ export function CreateBillModal({
           preferred_time: standingTime,
           notes: `${standingTiming.replace("_", " ")} ${standingDay} at ${format12Hour(standingTime)}`,
         };
+      }
+
+      if (statutoryDiscountMeta) {
+        if (!preferredScheduleObj) preferredScheduleObj = {};
+        preferredScheduleObj.statutory_discount = statutoryDiscountMeta;
+      }
+
+      // Prepend structured compliance tag into notes for audit & official receipt lookup
+      let finalNotes = notes.trim();
+      if (statutoryDiscountMeta) {
+        const complianceTag = `[STATUTORY DISCOUNT: ${
+          discountType === "senior" ? "SENIOR CITIZEN (RA 9994)" : "PWD (RA 10754)"
+        } | ID: ${discountIdNumber.trim()}${
+          discountIdCardholder ? ` | CARDHOLDER: ${discountIdCardholder.trim()}` : ""
+        }]`;
+        finalNotes = finalNotes ? `${complianceTag}\n${finalNotes}` : complianceTag;
       }
 
       const effectiveDentistId = dentistId || dentists[0]?.id || null;
@@ -334,7 +390,7 @@ export function CreateBillModal({
         discount_amount: numDiscount,
         status: "unpaid",
         due_date: dueDate || null,
-        notes: notes.trim() || null,
+        notes: finalNotes || null,
         is_installment: isInstallment,
         plan_type: isInstallment ? planType : null,
         downpayment_amount: isInstallment ? numDownpayment : 0,
@@ -371,6 +427,42 @@ export function CreateBillModal({
           console.error("Warning updating treatment billing status:", tErr);
         }
       }
+
+      // Log to immutable audit trail
+      const pat = patients.find((p) => p.id === patientId);
+      const patientName = pat ? `${pat.first_name} ${pat.last_name}` : "Patient";
+      fetch("/api/admin/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          actorId: currentStaff?.id || null,
+          actorName: currentStaff?.full_name || "Secretary",
+          actorRole: currentStaff?.role || "secretary",
+          actionCategory: "billing",
+          actionType: numDiscount > 0 ? "DISCOUNT_APPLIED" : "BILL_CREATED",
+          entityType: "treatment_bill",
+          entityId: data.id,
+          description: `Generated invoice #${data.invoice_number || data.id} for ${patientName} (Gross: ₱${numTotal.toLocaleString()}, Net: ₱${calculatedNet.toLocaleString()})${
+            statutoryDiscountMeta
+              ? ` with 20% Statutory Discount (${statutoryDiscountMeta.statutory_act}, ID: ${statutoryDiscountMeta.id_number})`
+              : numDiscount > 0
+              ? ` with ₱${numDiscount.toLocaleString()} discount`
+              : ""
+          }.`,
+          metadata: {
+            bill_id: data.id,
+            invoice_number: data.invoice_number,
+            patient_id: patientId,
+            patient_name: patientName,
+            total_amount: numTotal,
+            discount_amount: numDiscount,
+            net_amount: calculatedNet,
+            is_installment: isInstallment,
+            statutory_discount: statutoryDiscountMeta,
+          },
+          branchName: activeBranch?.name || "Main Clinic Hub",
+        }),
+      }).catch(() => {});
 
       showToast(
         isInstallment
@@ -670,35 +762,116 @@ export function CreateBillModal({
                 <span className="text-[10px] font-semibold text-slate-400 mr-1">Quick Discounts:</span>
                 <button
                   type="button"
-                  onClick={() => handleApplyQuickDiscount(0.20, "Senior Citizen (RA 9994)")}
-                  className="px-2 py-1 rounded-lg text-[10px] font-bold border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 hover:bg-purple-100 cursor-pointer transition-colors"
+                  onClick={() => handleApplyQuickDiscount(0.20, "Senior Citizen (RA 9994)", "senior")}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border cursor-pointer transition-colors ${
+                    discountType === "senior" && Number(discountAmount) > 0
+                      ? "bg-purple-600 text-white border-purple-600 shadow-2xs"
+                      : "border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 hover:bg-purple-100"
+                  }`}
                 >
                   🇵🇭 Senior Citizen (20%)
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleApplyQuickDiscount(0.20, "PWD (RA 10754)")}
-                  className="px-2 py-1 rounded-lg text-[10px] font-bold border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 hover:bg-blue-100 cursor-pointer transition-colors"
+                  onClick={() => handleApplyQuickDiscount(0.20, "PWD (RA 10754)", "pwd")}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border cursor-pointer transition-colors ${
+                    discountType === "pwd" && Number(discountAmount) > 0
+                      ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
+                      : "border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 hover:bg-blue-100"
+                  }`}
                 >
                   ♿ PWD (20%)
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleApplyQuickDiscount(0.10, "Courtesy / Family")}
-                  className="px-2 py-1 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 cursor-pointer transition-colors"
+                  onClick={() => handleApplyQuickDiscount(0.10, "Courtesy / Family", "courtesy")}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border cursor-pointer transition-colors ${
+                    discountType === "courtesy" && Number(discountAmount) > 0
+                      ? "bg-teal-600 text-white border-teal-600 shadow-2xs"
+                      : "border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
+                  }`}
                 >
                   👥 Courtesy (10%)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyQuickDiscount(0.05, "Promo Special", "promo")}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border cursor-pointer transition-colors ${
+                    discountType === "promo" && Number(discountAmount) > 0
+                      ? "bg-amber-600 text-white border-amber-600 shadow-2xs"
+                      : "border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 hover:bg-amber-100"
+                  }`}
+                >
+                  🏷️ Promo (5%)
                 </button>
                 {Number(discountAmount) > 0 && (
                   <button
                     type="button"
-                    onClick={() => setDiscountAmount("0")}
+                    onClick={() => {
+                      setDiscountAmount("0");
+                      setDiscountType("none");
+                      setDiscountIdNumber("");
+                      setDiscountIdCardholder("");
+                    }}
                     className="px-2 py-1 rounded-lg text-[10px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer transition-colors"
                   >
                     Clear Discount
                   </button>
                 )}
               </div>
+
+              {/* Philippine Statutory Tax Compliance Card (Required for Senior/PWD) */}
+              {Number(discountAmount) > 0 && (discountType === "senior" || discountType === "pwd") && (
+                <div className="p-3.5 rounded-2xl bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/80 space-y-2.5 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-purple-950 dark:text-purple-200 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-purple-600" />
+                      Statutory Tax Exemption Compliance ({discountType === "senior" ? "RA 9994 OSCA" : "RA 10754 PWD"})
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-200/80 dark:bg-purple-900/60 text-purple-800 dark:text-purple-300">
+                      Mandatory for Audit
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-purple-900 dark:text-purple-200 flex items-center gap-1">
+                        {discountType === "senior" ? "OSCA Senior Citizen ID #" : "Official PWD ID #"}{" "}
+                        <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={discountIdNumber}
+                        onChange={(e) => setDiscountIdNumber(e.target.value)}
+                        placeholder={
+                          discountType === "senior"
+                            ? "e.g. OSCA-2024-99120"
+                            : "e.g. PWD-04-123456"
+                        }
+                        required
+                        className="w-full px-3 py-1.5 rounded-xl border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-mono text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-purple-900 dark:text-purple-200">
+                        Cardholder Full Name
+                      </label>
+                      <input
+                        type="text"
+                        value={discountIdCardholder}
+                        onChange={(e) => setDiscountIdCardholder(e.target.value)}
+                        placeholder="Registered Name on ID Card"
+                        className="w-full px-3 py-1.5 rounded-xl border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-purple-800 dark:text-purple-300/80 leading-relaxed">
+                    Under BIR Revenue Regulations & RA 9994/10754, recording the official government ID number is strictly required to claim the 20% statutory deduction and VAT exemption on official dental receipts.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Installment Breakdown Controls */}
