@@ -37,12 +37,17 @@ export function DocumentIntakeModal({
       const { data } = await supabase.from("patients").select("*").order("last_name");
       if (data) {
         setPatients(data);
-        if (!patientId && data.length > 0) {
-          setPatientId(preselectedPatientId || data[0].id);
+        if (preselectedPatientId) {
+          setPatientId(preselectedPatientId);
+        } else if (!patientId && data.length > 0) {
+          setPatientId(data[0].id);
         }
       }
     }
     if (isOpen) {
+      if (preselectedPatientId) {
+        setPatientId(preselectedPatientId);
+      }
       loadPatients();
       setErrorMessage(null);
     }

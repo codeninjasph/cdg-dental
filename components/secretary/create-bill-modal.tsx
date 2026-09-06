@@ -141,24 +141,35 @@ export function CreateBillModal({
 
   const supabase = createClient();
 
-  // Load patients
+  // Load patients and synchronize preselected states
   useEffect(() => {
     async function loadPatients() {
       const { data } = await supabase.from("patients").select("*").order("last_name");
       if (data) {
         setPatients(data);
-        if (!patientId && data.length > 0) {
-          setPatientId(preselectedPatientId || data[0].id);
+        if (preselectedPatientId) {
+          setPatientId(preselectedPatientId);
+        } else if (!patientId && data.length > 0) {
+          setPatientId(data[0].id);
         }
       }
     }
     if (isOpen) {
+      if (preselectedPatientId) {
+        setPatientId(preselectedPatientId);
+      }
+      if (preselectedAppointmentId) {
+        setAppointmentId(preselectedAppointmentId);
+      } else {
+        setAppointmentId("");
+      }
+      setIsInstallment(false);
       loadPatients();
       const today = new Date().toISOString().split("T")[0];
       setDueDate(today);
       setErrorMessage(null);
     }
-  }, [isOpen, preselectedPatientId]);
+  }, [isOpen, preselectedPatientId, preselectedAppointmentId]);
 
   // Load patient appointments
   useEffect(() => {
@@ -346,11 +357,19 @@ export function CreateBillModal({
       if (error) throw error;
 
       // Update included treatments to billed status and link to this invoice
-      if (selectedTreatmentIds.length > 0 && data?.id) {
-        await supabase
+      const treatmentsToUpdate =
+        selectedTreatmentIds.length > 0
+          ? selectedTreatmentIds
+          : pendingTreatments.map((t: any) => t.id);
+
+      if (treatmentsToUpdate.length > 0 && data?.id) {
+        const { error: tErr } = await supabase
           .from("treatments")
           .update({ bill_id: data.id, billing_status: "billed" })
-          .in("id", selectedTreatmentIds);
+          .in("id", treatmentsToUpdate);
+        if (tErr) {
+          console.error("Warning updating treatment billing status:", tErr);
+        }
       }
 
       showToast(

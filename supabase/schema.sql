@@ -328,8 +328,9 @@ CREATE POLICY "Dentists and admins can update tooth charts" ON patient_tooth_cha
     USING (get_my_role() IN ('dentist', 'admin'));
 
 CREATE POLICY "Staff can view treatments" ON treatments FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Dentists and admins can add/edit treatments" ON treatments FOR ALL TO authenticated 
-    USING (get_my_role() IN ('dentist', 'admin'));
+CREATE POLICY "Staff can manage treatments" ON treatments FOR ALL TO authenticated 
+    USING (get_my_role() IN ('dentist', 'admin', 'secretary'))
+    WITH CHECK (get_my_role() IN ('dentist', 'admin', 'secretary'));
 
 CREATE POLICY "Staff can view patient documents" ON patient_documents FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Staff can upload patient documents" ON patient_documents FOR INSERT TO authenticated WITH CHECK (true);

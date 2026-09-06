@@ -74,14 +74,27 @@ export function ConfirmRescheduleModal({
   const [actionType, setActionType] = useState<"confirm" | "reschedule_only" | "cancel" | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Original Values for comparison
+  // Original Values for comparison (in Asia/Manila PST UTC+8)
   const original = useMemo(() => {
     if (!appointment) return null;
     const startDate = new Date(appointment.start_time);
     const endDate = new Date(appointment.end_time);
 
-    const origDate = appointment.start_time.split("T")[0];
-    const origTime = `${String(startDate.getHours()).padStart(2, "0")}:${String(startDate.getMinutes()).padStart(2, "0")}`;
+    const manilaDateFormatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const manilaTimeFormatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Manila",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+
+    const origDate = manilaDateFormatter.format(startDate);
+    const origTime = manilaTimeFormatter.format(startDate);
     const diffMins = Math.max(15, Math.round((endDate.getTime() - startDate.getTime()) / 60000)) || 60;
 
     return {
@@ -143,7 +156,7 @@ export function ConfirmRescheduleModal({
     setErrorMessage(null);
 
     try {
-      const startDateTime = new Date(`${date}T${time}:00`);
+      const startDateTime = new Date(`${date}T${time}:00+08:00`);
       const endDateTime = new Date(startDateTime.getTime() + durationMinutes * 60000);
 
       // Build updated notes
