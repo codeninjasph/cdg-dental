@@ -83,11 +83,13 @@ export async function updateSession(request: NextRequest) {
       user.id === "00000000-0000-0000-0000-000000000030" ||
       metadataRole === "admin";
 
-    const userRole = isMasterAdmin && rawCookieRole
-      ? normalizeRole(rawCookieRole)
-      : isMasterAdmin
-      ? "admin"
-      : normalizeRole(rawCookieRole || metadataRole);
+    // Only authenticated master admins may switch viewports via cookies.
+    // Non-admin users are strictly bound to their verified metadata role to prevent privilege escalation.
+    const userRole = isMasterAdmin
+      ? rawCookieRole
+        ? normalizeRole(rawCookieRole)
+        : "admin"
+      : normalizeRole(metadataRole);
 
     // If cookie was missing but metadata or master admin had role, set cookie in response
     if (!rawCookieRole) {

@@ -1,47 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 import {
   listBranchesWithStatsAdmin,
   createBranchAdmin,
   updateBranchAdmin,
   deleteBranchAdmin,
 } from "@/lib/db/admin";
-import { ROLE_COOKIE_NAME } from "@/lib/supabase/get-user-role";
-
-async function verifyAdminAuth(request: NextRequest): Promise<boolean> {
-  const roleCookie = request.cookies.get(ROLE_COOKIE_NAME)?.value;
-  if (roleCookie === "admin") return true;
-
-  try {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll();
-          },
-        },
-      }
-    );
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      if (
-        user.email === "admin@gmail.com" ||
-        user.id === "00000000-0000-0000-0000-000000000030" ||
-        user.user_metadata?.role === "admin"
-      ) {
-        return true;
-      }
-    }
-  } catch {
-    // fallback to false
-  }
-
-  return false;
-}
+import { verifyAdminAuth } from "@/lib/supabase/verify-admin";
 
 /**
  * GET: List all clinic branches with appointment and staff statistics
