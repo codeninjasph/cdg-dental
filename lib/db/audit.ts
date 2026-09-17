@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
-import { createClient } from "@/lib/supabase/client";
+import crypto from "crypto";
+import { getPool, isValidUuid } from "./pool";
 
 export type AuditActionCategory =
   | "billing"
@@ -69,10 +70,19 @@ export async function logAuditEvent(entry: {
   branchId?: string | null;
   branchName?: string | null;
 }): Promise<AuditLogRecord> {
+  const auditId = crypto.randomUUID();
+  const validActorUuid = isValidUuid(entry.actorId) ? entry.actorId : null;
+  const validBranchUuid = isValidUuid(entry.branchId) ? entry.branchId : null;
+  const metadata = {
+    ...(entry.metadata || {}),
+    ...(entry.actorId && !validActorUuid ? { raw_actor_id: entry.actorId } : {}),
+    ...(entry.branchId && !validBranchUuid ? { raw_branch_id: entry.branchId } : {}),
+  };
+
   const newLog: AuditLogRecord = {
-    id: `aud-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    id: auditId,
     created_at: new Date().toISOString(),
-    actor_id: entry.actorId || null,
+    actor_id: validActorUuid,
     actor_name: entry.actorName,
     actor_role: entry.actorRole,
     action_category: entry.actionCategory,
@@ -80,22 +90,56 @@ export async function logAuditEvent(entry: {
     entity_type: entry.entityType || null,
     entity_id: entry.entityId || null,
     description: entry.description,
-    metadata: entry.metadata || {},
-    branch_id: entry.branchId || null,
+    metadata,
+    branch_id: validBranchUuid,
     branch_name: entry.branchName || null,
   };
 
   try {
-    const supabase = createClient();
-    await supabase.from("audit_logs").insert(newLog);
-  } catch {
-    // Fall back to local store
+    const db = getPool();
+    const query = `
+      INSERT INTO public.audit_logs (
+        id, created_at, actor_id, actor_name, actor_role,
+        action_category, action_type, entity_type, entity_id,
+        description, metadata, branch_id, branch_name
+      ) VALUES (
+        $1::uuid, NOW(), $2::uuid, $3, $4,
+        $5, $6, $7, $8,
+        $9, $10::jsonb, $11::uuid, $12
+      )
+      RETURNING id, created_at, actor_id, actor_name, actor_role, action_category, action_type, entity_type, entity_id, description, metadata, branch_id, branch_name;
+    `;
+    const { rows } = await db.query(query, [
+      auditId,
+      validActorUuid,
+      entry.actorName,
+      entry.actorRole,
+      entry.actionCategory,
+      entry.actionType,
+      entry.entityType || null,
+      entry.entityId || null,
+      entry.description,
+      JSON.stringify(metadata),
+      validBranchUuid,
+      entry.branchName || null,
+    ]);
+
+    if (rows && rows.length > 0) {
+      const inserted = rows[0];
+      // Keep local file in sync
+      const logs = readLocalAuditLogs();
+      logs.unshift(inserted);
+      if (logs.length > 2000) logs.length = 2000;
+      writeLocalAuditLogs(logs);
+      return inserted;
+    }
+  } catch (err) {
+    console.error("Could not insert audit_log into DB, falling back to local file:", err);
   }
 
-  // Always write to persistent local file store
+  // Always write to persistent local file store as fallback
   const logs = readLocalAuditLogs();
   logs.unshift(newLog);
-  // Cap at 2,000 logs locally
   if (logs.length > 2000) {
     logs.length = 2000;
   }
@@ -116,28 +160,45 @@ export async function getAuditLogs(options?: {
   limit?: number;
 }): Promise<AuditLogRecord[]> {
   try {
-    const supabase = createClient();
-    let query = supabase.from("audit_logs").select("*").order("created_at", { ascending: false });
+    const db = getPool();
+    let query = `
+      SELECT 
+        id, created_at, actor_id, actor_name, actor_role,
+        action_category, action_type, entity_type, entity_id,
+        description, metadata, branch_id, branch_name
+      FROM public.audit_logs
+      WHERE 1=1
+    `;
+    const params: any[] = [];
 
     if (options?.category && options.category !== "all") {
-      query = query.eq("action_category", options.category);
+      params.push(options.category);
+      query += ` AND action_category = $${params.length}`;
     }
     if (options?.actorId && options.actorId !== "all") {
-      query = query.eq("actor_id", options.actorId);
+      if (isValidUuid(options.actorId)) {
+        params.push(options.actorId);
+        query += ` AND actor_id = $${params.length}::uuid`;
+      }
     }
     if (options?.startDate) {
-      query = query.gte("created_at", `${options.startDate}T00:00:00Z`);
+      params.push(`${options.startDate}T00:00:00Z`);
+      query += ` AND created_at >= $${params.length}::timestamptz`;
     }
     if (options?.endDate) {
-      query = query.lte("created_at", `${options.endDate}T23:59:59Z`);
-    }
-    if (options?.limit) {
-      query = query.limit(options.limit);
+      params.push(`${options.endDate}T23:59:59Z`);
+      query += ` AND created_at <= $${params.length}::timestamptz`;
     }
 
-    const { data, error } = await query;
-    if (!error && data && data.length > 0) {
-      let results = data as AuditLogRecord[];
+    query += ` ORDER BY created_at DESC`;
+
+    const limit = options?.limit || 200;
+    params.push(limit);
+    query += ` LIMIT $${params.length};`;
+
+    const { rows } = await db.query(query, params);
+    if (rows && rows.length > 0) {
+      let results = rows as AuditLogRecord[];
       if (options?.searchQuery?.trim()) {
         const q = options.searchQuery.toLowerCase();
         results = results.filter(
@@ -150,10 +211,11 @@ export async function getAuditLogs(options?: {
       }
       return results;
     }
-  } catch {
-    // fallback
+  } catch (err) {
+    console.warn("Could not read audit_logs from DB, falling back to local file:", err);
   }
 
+  // Local fallback
   let logs = readLocalAuditLogs();
 
   if (options?.category && options.category !== "all") {

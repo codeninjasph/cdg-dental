@@ -1,27 +1,12 @@
-import { Pool } from "pg";
 import crypto from "crypto";
 import { normalizeRole } from "@/lib/supabase/get-user-role";
 import { UserRole, BranchSchedule } from "@/types/dental";
 import { StaffUserRecord, MASTER_ADMIN_ID, MASTER_ADMIN_EMAIL } from "@/types/admin";
+import { getPool } from "./pool";
 
 export { MASTER_ADMIN_ID, MASTER_ADMIN_EMAIL };
 export type { StaffUserRecord };
 
-let pool: Pool | null = null;
-
-function getPool(): Pool {
-  if (!pool) {
-    const password = process.env.SUPABASE_DB_PASSWORD || "Hv2KRnXT1xS2IdEQ";
-    const connectionString = `postgresql://postgres.zgtcgpfbhfuwwuiqdlcc:${password}@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres`;
-    pool = new Pool({
-      connectionString,
-      ssl: { rejectUnauthorized: false },
-      max: 10,
-      idleTimeoutMillis: 30000,
-    });
-  }
-  return pool;
-}
 
 /**
  * List all staff profiles joined with auth metadata

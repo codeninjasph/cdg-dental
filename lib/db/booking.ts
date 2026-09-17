@@ -1,23 +1,9 @@
-import { Pool } from "pg";
 import { CDO_SERVICES_DATA } from "@/lib/cdo-clinic-data";
 import { listDentists } from "./admin";
 import { getDentistDutyForDate } from "@/lib/duty-schedule";
-
-let pool: Pool | null = null;
-
-function getPool(): Pool {
-  if (!pool) {
-    const password = process.env.SUPABASE_DB_PASSWORD || "Hv2KRnXT1xS2IdEQ";
-    const connectionString = `postgresql://postgres.zgtcgpfbhfuwwuiqdlcc:${password}@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres`;
-    pool = new Pool({
-      connectionString,
-      ssl: { rejectUnauthorized: false },
-      max: 10,
-      idleTimeoutMillis: 30000,
-    });
-  }
-  return pool;
-}
+import { getPool } from "./pool";
+import { getDentalServices, DentalService } from "./services";
+import { sendBookingConfirmationSms } from "@/lib/sms/semaphore";
 
 export interface PublicBranchRecord {
   id: string;
@@ -61,6 +47,7 @@ export interface PublicBookingResult {
     date: string;
     time: string;
     end_time: string;
+    sms_status?: string;
   };
 }
 
@@ -80,7 +67,7 @@ export async function getPublicClinicData() {
 
   const branches: PublicBranchRecord[] = branchRows.map((b) => {
     // Generate clean short name
-    let shortName = b.name.replace(/^CDG Dental Clinic\s*[—–-]\s*/i, "").trim();
+    const shortName = b.name.replace(/^CDG Dental Clinic\s*[—–-]\s*/i, "").trim();
     return {
       id: b.id,
       name: b.name,
@@ -95,11 +82,15 @@ export async function getPublicClinicData() {
   // 2. Fetch active dentists
   const dentists = await listDentists(true);
 
-  // 3. Return combined clinic data
+  // 3. Fetch active dental services from Master Fee Schedule
+  const dentalServices = await getDentalServices({ onlyActive: true });
+
+  // 4. Return combined clinic data
   return {
     branches,
     dentists,
     services: CDO_SERVICES_DATA,
+    dentalServices,
   };
 }
 
@@ -433,6 +424,23 @@ export async function createPublicBooking(
   const randomSuffix = Math.floor(1000 + Math.random() * 9000);
   const confirmationCode = `CDG-${randomSuffix}-${dateCompact}`;
 
+  // 7. Dispatch Automated SMS Confirmation (Semaphore Gateway)
+  let smsStatus = "unattempted";
+  try {
+    const smsResult = await sendBookingConfirmationSms({
+      phone: cleanPhone,
+      patientName: `${cleanFirstName} ${cleanLastName}`,
+      date: input.date,
+      time: input.time,
+      branchName: branch.name,
+      confirmationCode,
+    });
+    smsStatus = smsResult.status;
+  } catch (smsErr) {
+    console.warn("[Booking Confirmation SMS warning]:", smsErr);
+    smsStatus = "failed";
+  }
+
   return {
     success: true,
     appointment_id: appointment.id,
@@ -449,6 +457,7 @@ export async function createPublicBooking(
       date: input.date,
       time: input.time,
       end_time: formattedEndTime,
+      sms_status: smsStatus,
     },
   };
 }

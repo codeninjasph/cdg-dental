@@ -31,15 +31,25 @@ export function ToothModal({
   currentRecord,
   onSave,
 }: ToothModalProps) {
+  const [status, setStatus] = useState<ToothStatus>("healthy");
+  const [notes, setNotes] = useState<string>("");
+  const [selectedSurfaces, setSelectedSurfaces] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Sync state whenever modal opens or active tooth changes
+  React.useEffect(() => {
+    if (isOpen && toothNumber !== null) {
+      setStatus(currentRecord?.status || "healthy");
+      setNotes(currentRecord?.notes || "");
+      setSelectedSurfaces(
+        currentRecord?.surface ? currentRecord.surface.split("") : []
+      );
+    }
+  }, [isOpen, toothNumber, currentRecord]);
+
   if (!isOpen || toothNumber === null) return null;
 
   const toothMeta = TOOTH_METADATA[toothNumber];
-  const [status, setStatus] = useState<ToothStatus>(currentRecord?.status || "healthy");
-  const [notes, setNotes] = useState<string>(currentRecord?.notes || "");
-  const [selectedSurfaces, setSelectedSurfaces] = useState<string[]>(
-    currentRecord?.surface ? currentRecord.surface.split("") : []
-  );
-  const [isSaving, setIsSaving] = useState(false);
 
   const toggleSurface = (code: string) => {
     setSelectedSurfaces((prev) =>
